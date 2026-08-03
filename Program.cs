@@ -133,6 +133,18 @@ namespace SentinelaFirmwareStudio
         Label hashLabel = new Label();
         Button buildButton = new Button();
         Button cleanBuildButton = new Button();
+        Button addProjectButton = new Button();
+        Button removeProjectButton = new Button();
+        Button browseProjectButton = new Button();
+        Button browsePlatformIoButton = new Button();
+        Button detectEnvironmentButton = new Button();
+        Button newManualButton = new Button();
+        Button editConfigButton = new Button();
+        Button saveConfigButton = new Button();
+        Button cancelEditButton = new Button();
+        bool editingConfiguration;
+        bool creatingManualProject;
+        FirmwareProject projectSelectedBeforeManualCreation;
         ToolTip buttonTooltips = new ToolTip { ShowAlways = true, InitialDelay = 350, ReshowDelay = 150, AutoPopDelay = 7000 };
         TableLayoutPanel themeToolbar;
         Color currentAccent = Color.FromArgb(0, 120, 215);
@@ -184,7 +196,7 @@ namespace SentinelaFirmwareStudio
             left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            left.Controls.Add(new Label { Text = "PROJETOS", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 5, 3, 8) }, 0, 0);
+            left.Controls.Add(new Label { Text = "PROJETOS SALVOS", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 5, 3, 8) }, 0, 0);
             projects.Dock = DockStyle.Fill;
             projects.DrawMode = DrawMode.OwnerDrawFixed;
             projects.ItemHeight = 22;
@@ -192,12 +204,15 @@ namespace SentinelaFirmwareStudio
             projects.SelectedIndexChanged += delegate { DisplaySelectedProject(); };
             left.Controls.Add(projects, 0, 1);
             var projectButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            projectButtons.Controls.Add(MakeButton("Adicionar", delegate { AddProject(); }));
-            projectButtons.Controls.Add(MakeButton("Remover", delegate { RemoveProject(); }));
+            addProjectButton = MakeButton("Adicionar por pasta", delegate { AddProject(); });
+            removeProjectButton = MakeButton("Remover", delegate { RemoveProject(); });
+            projectButtons.Controls.Add(addProjectButton);
+            projectButtons.Controls.Add(removeProjectButton);
             left.Controls.Add(projectButtons, 0, 2);
             root.Controls.Add(left, 0, 1);
 
-            var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 8, ColumnCount = 1 };
+            var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 9, ColumnCount = 1 };
+            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -208,20 +223,34 @@ namespace SentinelaFirmwareStudio
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.Controls.Add(right, 1, 1);
 
-            right.Controls.Add(FieldRow("Nome", nameBox, null), 0, 0);
-            right.Controls.Add(FieldRow("Pasta do projeto", folderBox, MakeButton("Procurar...", delegate { BrowseProjectFolder(); })), 0, 1);
-            right.Controls.Add(FieldRow("PlatformIO", platformIoBox, MakeButton("Procurar...", delegate { BrowsePlatformIo(); })), 0, 2);
+            var configurationActions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 45, Padding = new Padding(0, 3, 0, 6), FlowDirection = FlowDirection.LeftToRight };
+            configurationActions.Controls.Add(new Label { Text = "CONFIGURAÇÃO DO PROJETO", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 10, 16, 3) });
+            newManualButton = MakeButton("Novo manual", delegate { BeginManualProjectCreation(); });
+            editConfigButton = MakeButton("Editar configuração", delegate { BeginConfigurationEdit(); });
+            saveConfigButton = MakeButton("Salvar configuração", delegate { SaveCurrentProject(); });
+            cancelEditButton = MakeButton("Cancelar edição", delegate { CancelConfigurationEdit(); });
+            configurationActions.Controls.Add(newManualButton);
+            configurationActions.Controls.Add(editConfigButton);
+            configurationActions.Controls.Add(saveConfigButton);
+            configurationActions.Controls.Add(cancelEditButton);
+            right.Controls.Add(configurationActions, 0, 0);
+
+            right.Controls.Add(FieldRow("Nome", nameBox, null), 0, 1);
+            browseProjectButton = MakeButton("Procurar...", delegate { BrowseProjectFolder(); });
+            browsePlatformIoButton = MakeButton("Procurar...", delegate { BrowsePlatformIo(); });
+            right.Controls.Add(FieldRow("Pasta do projeto", folderBox, browseProjectButton), 0, 2);
+            right.Controls.Add(FieldRow("PlatformIO", platformIoBox, browsePlatformIoButton), 0, 3);
             environmentBox.DropDownStyle = ComboBoxStyle.DropDown;
-            right.Controls.Add(FieldRow("Ambiente", environmentBox, MakeButton("Detectar", delegate { DetectEnvironments(); })), 0, 3);
+            detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
+            right.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(0, 5, 0, 3) };
             buildButton = MakeButton("Compilar", delegate { StartBuild(false); });
             cleanBuildButton = MakeButton("Limpar e compilar", delegate { StartBuild(true); });
             actions.Controls.Add(buildButton);
             actions.Controls.Add(cleanBuildButton);
-            actions.Controls.Add(MakeButton("Salvar alterações", delegate { SaveCurrentProject(); }));
             actions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
-            right.Controls.Add(actions, 0, 4);
+            right.Controls.Add(actions, 0, 5);
 
             var artifacts = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 68, AutoScroll = true, Padding = new Padding(0, 3, 0, 3) };
             artifacts.Controls.Add(new Label { Text = "Artefato:", AutoSize = true, Margin = new Padding(3, 9, 3, 3) });
@@ -246,7 +275,7 @@ namespace SentinelaFirmwareStudio
             exportFormatBox.SelectedIndex = 0;
             artifacts.Controls.Add(exportFormatBox);
             artifacts.Controls.Add(MakeButton("Exportar...", delegate { ExportSelectedFormat(); }));
-            right.Controls.Add(artifacts, 0, 5);
+            right.Controls.Add(artifacts, 0, 6);
 
             logBox.Dock = DockStyle.Fill;
             logBox.Multiline = true;
@@ -256,7 +285,7 @@ namespace SentinelaFirmwareStudio
             logBox.Font = new Font("Consolas", 9F);
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
-            right.Controls.Add(logBox, 0, 6);
+            right.Controls.Add(logBox, 0, 7);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
             statusLabel.Text = "Pronto";
@@ -266,7 +295,8 @@ namespace SentinelaFirmwareStudio
             hashLabel.AutoSize = true;
             footer.Controls.Add(statusLabel, 0, 0);
             footer.Controls.Add(hashLabel, 0, 1);
-            right.Controls.Add(footer, 0, 7);
+            right.Controls.Add(footer, 0, 8);
+            SetConfigurationEditMode(false);
         }
 
         Button MakeButton(string text, EventHandler click)
@@ -280,11 +310,14 @@ namespace SentinelaFirmwareStudio
 
         string GetButtonTooltip(string text)
         {
-            if (text.StartsWith("Adicionar")) return "Adiciona à lista uma pasta existente que contém um projeto PlatformIO. Nenhum arquivo é copiado.";
+            if (text.StartsWith("Adicionar por pasta")) return "Fluxo automático: selecione uma pasta com platformio.ini e o projeto será cadastrado com os dados detectados.";
+            if (text.StartsWith("Novo manual")) return "Fluxo manual: limpa os campos para cadastrar nome, pasta, PlatformIO e ambiente separadamente.";
             if (text.StartsWith("Remover")) return "Remove apenas o caminho salvo da lista. A pasta e os arquivos do projeto não são excluídos.";
             if (text.StartsWith("Compilar")) return "Compila o projeto selecionado usando o ambiente PlatformIO informado.";
             if (text.StartsWith("Limpar")) return "Apaga os arquivos temporários da compilação anterior e compila o projeto novamente.";
-            if (text.StartsWith("Salvar alterações")) return "Salva o nome, os caminhos e o ambiente configurados para este projeto.";
+            if (text.StartsWith("Editar configuração")) return "Desbloqueia o nome e os caminhos para permitir alterações controladas.";
+            if (text.StartsWith("Salvar configuração")) return "Salva as alterações e protege novamente os campos de configuração.";
+            if (text.StartsWith("Cancelar edição")) return "Descarta as alterações feitas e restaura os últimos valores salvos.";
             if (text.StartsWith("Abrir pasta")) return "Abre a pasta do projeto selecionado no Explorador de Arquivos.";
             if (text.StartsWith("Procurar")) return "Abre uma janela para localizar a pasta ou o executável solicitado.";
             if (text.StartsWith("Detectar")) return "Lê o platformio.ini e lista automaticamente os ambientes disponíveis.";
@@ -299,10 +332,13 @@ namespace SentinelaFirmwareStudio
         string GetButtonGlyph(string text)
         {
             if (text.StartsWith("Adicionar")) return "+";
+            if (text.StartsWith("Novo manual")) return "✦";
             if (text.StartsWith("Remover")) return "−";
             if (text.StartsWith("Compilar")) return "▶";
             if (text.StartsWith("Limpar")) return "↻";
-            if (text.StartsWith("Salvar alterações")) return "✓";
+            if (text.StartsWith("Editar configuração")) return "✎";
+            if (text.StartsWith("Salvar configuração")) return "✓";
+            if (text.StartsWith("Cancelar edição")) return "×";
             if (text.StartsWith("Abrir pasta") || text.StartsWith("Procurar")) return "▣";
             if (text.StartsWith("Detectar")) return "⌕";
             if (text.StartsWith("Atualizar")) return "↻";
@@ -471,7 +507,15 @@ namespace SentinelaFirmwareStudio
         {
             var project = SelectedProject;
             ResetProjectView();
-            if (project == null) return;
+            SetConfigurationEditMode(false);
+            if (project == null)
+            {
+                nameBox.Clear();
+                folderBox.Clear();
+                platformIoBox.Clear();
+                environmentBox.Text = "";
+                return;
+            }
             nameBox.Text = project.Name;
             folderBox.Text = project.Folder;
             platformIoBox.Text = project.PlatformIoPath;
@@ -479,6 +523,70 @@ namespace SentinelaFirmwareStudio
             DetectEnvironments(false);
             RefreshArtifacts();
             statusLabel.Text = "Projeto selecionado: " + project.Name;
+        }
+
+        void BeginConfigurationEdit()
+        {
+            if (SelectedProject == null) return;
+            creatingManualProject = false;
+            SetConfigurationEditMode(true);
+            nameBox.Focus();
+            nameBox.SelectAll();
+            statusLabel.Text = "Editando configuração — salve ou cancele para continuar";
+        }
+
+        void BeginManualProjectCreation()
+        {
+            projectSelectedBeforeManualCreation = SelectedProject;
+            projects.SelectedIndex = -1;
+            creatingManualProject = true;
+            ResetProjectView();
+            nameBox.Clear();
+            folderBox.Clear();
+            platformIoBox.Clear();
+            environmentBox.Items.Clear();
+            environmentBox.Text = "";
+            SetConfigurationEditMode(true);
+            nameBox.Focus();
+            statusLabel.Text = "Novo projeto manual — preencha os campos e salve ou cancele";
+        }
+
+        void CancelConfigurationEdit()
+        {
+            if (creatingManualProject)
+            {
+                FirmwareProject previous = projectSelectedBeforeManualCreation;
+                creatingManualProject = false;
+                projectSelectedBeforeManualCreation = null;
+                RefreshProjectList();
+                if (previous != null) projects.SelectedItem = previous;
+                else DisplaySelectedProject();
+            }
+            else DisplaySelectedProject();
+            statusLabel.Text = "Edição cancelada; valores salvos restaurados";
+        }
+
+        void SetConfigurationEditMode(bool editing)
+        {
+            bool hasProject = SelectedProject != null;
+            bool hasEditableTarget = hasProject || creatingManualProject;
+            editingConfiguration = editing && hasEditableTarget;
+            nameBox.ReadOnly = !editingConfiguration;
+            folderBox.ReadOnly = !editingConfiguration;
+            platformIoBox.ReadOnly = !editingConfiguration;
+            browseProjectButton.Enabled = editingConfiguration;
+            browsePlatformIoButton.Enabled = editingConfiguration;
+            editConfigButton.Visible = hasProject && !editingConfiguration;
+            saveConfigButton.Visible = editingConfiguration;
+            cancelEditButton.Visible = editingConfiguration;
+            newManualButton.Enabled = !editingConfiguration;
+            projects.Enabled = !editingConfiguration;
+            addProjectButton.Enabled = !editingConfiguration;
+            removeProjectButton.Enabled = hasProject && !editingConfiguration;
+            buildButton.Enabled = hasProject && !editingConfiguration;
+            cleanBuildButton.Enabled = hasProject && !editingConfiguration;
+            environmentBox.Enabled = hasEditableTarget;
+            detectEnvironmentButton.Enabled = hasEditableTarget;
         }
 
         void ResetProjectView()
@@ -527,12 +635,25 @@ namespace SentinelaFirmwareStudio
         void SaveCurrentProject()
         {
             var project = SelectedProject;
-            if (project == null) return;
+            if (project == null && !creatingManualProject) return;
+            if (string.IsNullOrWhiteSpace(nameBox.Text)) { MessageBox.Show("Informe um nome para o projeto."); nameBox.Focus(); return; }
+            if (!Directory.Exists(folderBox.Text.Trim())) { MessageBox.Show("A pasta do projeto não existe."); folderBox.Focus(); return; }
+            if (!File.Exists(Path.Combine(folderBox.Text.Trim(), "platformio.ini"))) { MessageBox.Show("A pasta selecionada não contém platformio.ini."); folderBox.Focus(); return; }
+            if (!File.Exists(platformIoBox.Text.Trim())) { MessageBox.Show("O executável do PlatformIO não foi encontrado."); platformIoBox.Focus(); return; }
+            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show("Informe ou detecte um ambiente PlatformIO."); environmentBox.Focus(); return; }
+            if (creatingManualProject)
+            {
+                project = new FirmwareProject();
+                settings.Projects.Add(project);
+            }
             project.Name = nameBox.Text.Trim();
             project.Folder = folderBox.Text.Trim();
             project.PlatformIoPath = platformIoBox.Text.Trim();
             project.Environment = environmentBox.Text.Trim();
+            creatingManualProject = false;
+            projectSelectedBeforeManualCreation = null;
             SaveSettings();
+            SetConfigurationEditMode(false);
             RefreshProjectList();
             projects.SelectedItem = project;
             statusLabel.Text = "Configuração salva";
@@ -660,8 +781,9 @@ namespace SentinelaFirmwareStudio
 
         void SetBusy(bool busy)
         {
-            buildButton.Enabled = !busy;
-            cleanBuildButton.Enabled = !busy;
+            bool canBuild = !busy && !editingConfiguration && SelectedProject != null;
+            buildButton.Enabled = canBuild;
+            cleanBuildButton.Enabled = canBuild;
         }
 
         void AppendLog(string text)

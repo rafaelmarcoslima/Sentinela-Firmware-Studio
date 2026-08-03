@@ -1,0 +1,26 @@
+# Compilação do aplicativo
+dist/
+bin/
+obj/
+*.exe
+*.pdb
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Arquivos temporários e logs
+*.log
+*.tmp
+*.bak
+~$*
+
+# Sistema operacional
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Configuração local do aplicativo
+projects.xml

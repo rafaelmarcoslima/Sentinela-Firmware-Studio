@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -27,7 +28,77 @@ namespace SentinelaFirmwareStudio
     public class AppSettings
     {
         public List<FirmwareProject> Projects { get; set; }
-        public AppSettings() { Projects = new List<FirmwareProject>(); }
+        public string ThemeName { get; set; }
+        public AppSettings() { Projects = new List<FirmwareProject>(); ThemeName = "Azul"; }
+    }
+
+    public class BuildProgressForm : Form
+    {
+        Label messageLabel = new Label();
+
+        public BuildProgressForm()
+        {
+            Text = "Compilando firmware";
+            Width = 460;
+            Height = 155;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            StartPosition = FormStartPosition.CenterParent;
+            ControlBox = false;
+            ShowInTaskbar = false;
+
+            messageLabel.Text = "Preparando compilação...";
+            messageLabel.AutoSize = false;
+            messageLabel.Dock = DockStyle.Top;
+            messageLabel.Height = 52;
+            messageLabel.TextAlign = ContentAlignment.MiddleCenter;
+            messageLabel.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+
+            var progress = new ProgressBar { Dock = DockStyle.Top, Height = 22, Style = ProgressBarStyle.Marquee, MarqueeAnimationSpeed = 25 };
+            var note = new Label { Text = "Aguarde. Os controles serão liberados ao terminar.", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
+            Controls.Add(note);
+            Controls.Add(progress);
+            Controls.Add(messageLabel);
+        }
+
+        public void SetMessage(string message) { messageLabel.Text = message; }
+    }
+
+    public class ThemePickerForm : Form
+    {
+        public string SelectedTheme { get; private set; }
+
+        public ThemePickerForm(string currentTheme, Dictionary<string, Color> themes)
+        {
+            SelectedTheme = currentTheme;
+            Text = "Configurações de aparência";
+            Width = 430;
+            Height = 210;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            StartPosition = FormStartPosition.CenterParent;
+
+            var title = new Label { Text = "Escolha a cor do tema", Dock = DockStyle.Top, Height = 45, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
+            var palette = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), FlowDirection = FlowDirection.LeftToRight };
+            var tooltip = new ToolTip { ShowAlways = true };
+
+            foreach (var theme in themes)
+            {
+                string name = theme.Key;
+                var colorButton = new Button { Width = 46, Height = 46, BackColor = theme.Value, FlatStyle = FlatStyle.Flat, Margin = new Padding(7), TabStop = false };
+                colorButton.FlatAppearance.BorderSize = name == currentTheme ? 4 : 1;
+                colorButton.FlatAppearance.BorderColor = name == currentTheme ? Color.Black : Color.White;
+                var path = new GraphicsPath();
+                path.AddEllipse(1, 1, 42, 42);
+                colorButton.Region = new Region(path);
+                tooltip.SetToolTip(colorButton, name);
+                colorButton.Click += delegate { SelectedTheme = name; DialogResult = DialogResult.OK; Close(); };
+                palette.Controls.Add(colorButton);
+            }
+
+            Controls.Add(palette);
+            Controls.Add(title);
+        }
     }
 
     static class Program
@@ -62,6 +133,17 @@ namespace SentinelaFirmwareStudio
         Button buildButton = new Button();
         Button cleanBuildButton = new Button();
         Process activeProcess;
+        BuildProgressForm progressForm;
+        readonly Dictionary<string, Color> themes = new Dictionary<string, Color>
+        {
+            { "Azul", Color.FromArgb(0, 120, 215) },
+            { "Turquesa", Color.FromArgb(0, 137, 123) },
+            { "Verde", Color.FromArgb(46, 125, 50) },
+            { "Roxo", Color.FromArgb(123, 31, 162) },
+            { "Laranja", Color.FromArgb(230, 81, 0) },
+            { "Vermelho", Color.FromArgb(198, 40, 40) },
+            { "Grafite", Color.FromArgb(69, 90, 100) }
+        };
 
         public MainForm()
         {
@@ -73,14 +155,25 @@ namespace SentinelaFirmwareStudio
             Font = new Font("Segoe UI", 9F);
             BuildUi();
             LoadSettings();
+            ApplyTheme();
         }
 
         void BuildUi()
         {
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(10) };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(10) };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 265));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
+
+            var toolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            toolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) }, 0, 0);
+            toolbar.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }), 1, 0);
+            root.Controls.Add(toolbar, 0, 0);
+            root.SetColumnSpan(toolbar, 2);
 
             var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, Padding = new Padding(0, 0, 10, 0) };
             left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -94,7 +187,7 @@ namespace SentinelaFirmwareStudio
             projectButtons.Controls.Add(MakeButton("Adicionar", delegate { AddProject(); }));
             projectButtons.Controls.Add(MakeButton("Remover", delegate { RemoveProject(); }));
             left.Controls.Add(projectButtons, 0, 2);
-            root.Controls.Add(left, 0, 0);
+            root.Controls.Add(left, 0, 1);
 
             var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 8, ColumnCount = 1 };
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -105,7 +198,7 @@ namespace SentinelaFirmwareStudio
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(right, 1, 0);
+            root.Controls.Add(right, 1, 1);
 
             right.Controls.Add(FieldRow("Nome", nameBox, null), 0, 0);
             right.Controls.Add(FieldRow("Pasta do projeto", folderBox, MakeButton("Procurar...", delegate { BrowseProjectFolder(); })), 0, 1);
@@ -170,9 +263,79 @@ namespace SentinelaFirmwareStudio
 
         Button MakeButton(string text, EventHandler click)
         {
-            var button = new Button { Text = text, AutoSize = true, Height = 29, Margin = new Padding(3) };
+            var button = new Button { Text = text, AutoSize = true, Height = 31, Margin = new Padding(3), FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            button.Image = CreateButtonIcon(GetButtonGlyph(text));
             button.Click += click;
             return button;
+        }
+
+        string GetButtonGlyph(string text)
+        {
+            if (text.StartsWith("Adicionar")) return "+";
+            if (text.StartsWith("Remover")) return "−";
+            if (text.StartsWith("Compilar")) return "▶";
+            if (text.StartsWith("Limpar")) return "↻";
+            if (text.StartsWith("Salvar alterações")) return "✓";
+            if (text.StartsWith("Abrir pasta") || text.StartsWith("Procurar")) return "▣";
+            if (text.StartsWith("Detectar")) return "⌕";
+            if (text.StartsWith("Atualizar")) return "↻";
+            if (text.StartsWith("Copiar")) return "⧉";
+            if (text.StartsWith("Exportar")) return "⇩";
+            if (text.StartsWith("Configurações")) return "⚙";
+            return "•";
+        }
+
+        Bitmap CreateButtonIcon(string glyph)
+        {
+            var bitmap = new Bitmap(18, 18);
+            using (var graphics = Graphics.FromImage(bitmap))
+            using (var font = new Font("Segoe UI Symbol", 10F, FontStyle.Bold, GraphicsUnit.Point))
+            using (var brush = new SolidBrush(Color.FromArgb(55, 55, 55)))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                var size = graphics.MeasureString(glyph, font);
+                graphics.DrawString(glyph, font, brush, (18 - size.Width) / 2F, (18 - size.Height) / 2F);
+            }
+            return bitmap;
+        }
+
+        void OpenThemeSettings()
+        {
+            using (var dialog = new ThemePickerForm(settings.ThemeName, themes))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                settings.ThemeName = dialog.SelectedTheme;
+                SaveSettings();
+                ApplyTheme();
+            }
+        }
+
+        void ApplyTheme()
+        {
+            Color accent;
+            if (!themes.TryGetValue(settings.ThemeName ?? "Azul", out accent)) accent = themes["Azul"];
+            BackColor = Color.FromArgb(246, 247, 249);
+            ApplyThemeToControls(this, accent);
+            logBox.BackColor = Color.FromArgb(28, 31, 36);
+            logBox.ForeColor = Color.Gainsboro;
+            statusLabel.ForeColor = accent;
+        }
+
+        void ApplyThemeToControls(Control parent, Color accent)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                var button = control as Button;
+                if (button != null)
+                {
+                    button.FlatStyle = FlatStyle.Flat;
+                    button.FlatAppearance.BorderColor = accent;
+                    button.FlatAppearance.MouseOverBackColor = Color.FromArgb(232, 238, 245);
+                    button.FlatAppearance.MouseDownBackColor = Color.FromArgb(218, 228, 238);
+                }
+                ApplyThemeToControls(control, accent);
+            }
         }
 
         Control FieldRow(string label, Control input, Button action)
@@ -227,6 +390,7 @@ namespace SentinelaFirmwareStudio
         void DisplaySelectedProject()
         {
             var project = SelectedProject;
+            ResetProjectView();
             if (project == null) return;
             nameBox.Text = project.Name;
             folderBox.Text = project.Folder;
@@ -234,6 +398,16 @@ namespace SentinelaFirmwareStudio
             environmentBox.Text = string.IsNullOrWhiteSpace(project.Environment) ? "esp32dev" : project.Environment;
             DetectEnvironments(false);
             RefreshArtifacts();
+            statusLabel.Text = "Projeto selecionado: " + project.Name;
+        }
+
+        void ResetProjectView()
+        {
+            logBox.Clear();
+            artifactBox.Items.Clear();
+            hashLabel.Text = "SHA-256: —";
+            statusLabel.ForeColor = themes.ContainsKey(settings.ThemeName ?? "") ? themes[settings.ThemeName] : themes["Azul"];
+            statusLabel.Text = "Selecione ou compile um projeto";
         }
 
         void AddProject()
@@ -327,11 +501,26 @@ namespace SentinelaFirmwareStudio
             logBox.Clear();
             SetBusy(true);
             statusLabel.Text = cleanFirst ? "Limpando projeto..." : "Compilando...";
+            ShowBuildProgress(cleanFirst ? "Limpando arquivos anteriores..." : "Compilando o firmware...");
             if (cleanFirst) RunPlatformIo("run -e \"" + environmentBox.Text + "\" -t clean", delegate(bool ok) {
                 if (!ok) FinishBuild(false);
-                else { statusLabel.Text = "Compilando..."; RunPlatformIo("run -e \"" + environmentBox.Text + "\"", FinishBuild); }
+                else {
+                    statusLabel.Text = "Compilando...";
+                    if (progressForm != null) progressForm.SetMessage("Limpeza concluída. Compilando o firmware...");
+                    RunPlatformIo("run -e \"" + environmentBox.Text + "\"", FinishBuild);
+                }
             });
             else RunPlatformIo("run -e \"" + environmentBox.Text + "\"", FinishBuild);
+        }
+
+        void ShowBuildProgress(string message)
+        {
+            progressForm = new BuildProgressForm();
+            progressForm.SetMessage(message);
+            progressForm.Show(this);
+            Enabled = false;
+            progressForm.Enabled = true;
+            progressForm.BringToFront();
         }
 
         void RunPlatformIo(string arguments, Action<bool> completed)
@@ -373,6 +562,14 @@ namespace SentinelaFirmwareStudio
 
         void FinishBuild(bool success)
         {
+            Enabled = true;
+            if (progressForm != null)
+            {
+                progressForm.Close();
+                progressForm.Dispose();
+                progressForm = null;
+            }
+            Activate();
             SetBusy(false);
             statusLabel.ForeColor = success ? Color.ForestGreen : Color.Firebrick;
             statusLabel.Text = success ? "Compilação concluída com sucesso" : "Falha na compilação";

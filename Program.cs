@@ -18,6 +18,142 @@ using System.Xml.Serialization;
 
 namespace SentinelaFirmwareStudio
 {
+    public static class I18n
+    {
+        public static string Language = "pt";
+        static readonly Dictionary<string, string> English = new Dictionary<string, string>
+        {
+            { "Sentinela Firmware Studio", "Sentinela Firmware Studio" }, { "PROJETOS SALVOS", "SAVED PROJECTS" },
+            { "Configuração do projeto", "Project settings" }, { "Compilação e arquivos", "Build and files" },
+            { "CONFIGURAÇÃO DO PROJETO", "PROJECT SETTINGS" }, { "Novo manual", "New manual" }, { "Editar configuração", "Edit settings" },
+            { "Salvar configuração", "Save settings" }, { "Cancelar edição", "Cancel editing" }, { "Nome", "Name" },
+            { "Pasta do projeto", "Project folder" }, { "PlatformIO", "PlatformIO" }, { "Ambiente", "Environment" },
+            { "Procurar...", "Browse..." }, { "Detectar", "Detect" }, { "Abrir pasta", "Open folder" },
+            { "ARQUIVOS GERADOS E EXPORTAÇÃO", "GENERATED FILES AND EXPORT" }, { "Arquivo gerado:", "Generated file:" },
+            { "Atualizar", "Refresh" }, { "Copiar arquivo", "Copy file" }, { "Salvar como...", "Save as..." },
+            { "Copiar SHA-256", "Copy SHA-256" }, { "Scripts:", "Scripts:" }, { "Exportar .BAT", "Export .BAT" },
+            { "Exportar .PS1", "Export .PS1" }, { "Compilar", "Build" }, { "Limpar e compilar", "Clean and build" },
+            { "Salvar firmware", "Save firmware" }, { "Criar pacote ZIP", "Create ZIP package" }, { "Histórico", "History" },
+            { "Adicionar por pasta", "Add from folder" }, { "Remover", "Remove" }, { "Atualizações", "Updates" },
+            { "Configurações", "Settings" }, { "Escolha a cor do tema", "Choose theme color" },
+            { "Configurações de aparência", "Appearance settings" }, { "Idioma da interface", "Interface language" },
+            { "Português", "Portuguese" }, { "Inglês", "English" }, { "Espanhol", "Spanish" },
+            { "Pronto", "Ready" }, { "Projeto", "Project" }, { "Data e hora", "Date and time" },
+            { "Resultado", "Result" }, { "Duração", "Duration" }, { "Tamanho", "Size" },
+            { "Caminho do firmware", "Firmware path" }, { "Histórico de compilações", "Build history" },
+            { "Sucesso", "Success" }, { "Falha", "Failure" }, { "Compilação concluída", "Build completed" },
+            { "Falha na compilação", "Build failed" }, { "Atualização disponível", "Update available" },
+            { "Fluxo automático: selecione uma pasta com platformio.ini e o projeto será cadastrado com os dados detectados.", "Automatic flow: select a folder containing platformio.ini and the detected project data will be registered." },
+            { "Fluxo manual: limpa os campos para cadastrar nome, pasta, PlatformIO e ambiente separadamente.", "Manual flow: clears the fields so name, folder, PlatformIO and environment can be entered separately." },
+            { "Remove apenas o caminho salvo da lista. A pasta e os arquivos do projeto não são excluídos.", "Removes only the saved path from the list. The project folder and files are not deleted." },
+            { "Compila o projeto selecionado usando o ambiente PlatformIO informado.", "Builds the selected project using the chosen PlatformIO environment." },
+            { "Apaga os arquivos temporários da compilação anterior e compila o projeto novamente.", "Deletes previous temporary build files and builds the project again." },
+            { "Desbloqueia o nome e os caminhos para permitir alterações controladas.", "Unlocks the name and paths for controlled editing." },
+            { "Salva as alterações e protege novamente os campos de configuração.", "Saves changes and locks the settings fields again." },
+            { "Descarta as alterações feitas e restaura os últimos valores salvos.", "Discards changes and restores the last saved values." },
+            { "Abre a pasta do projeto selecionado no Explorador de Arquivos.", "Opens the selected project folder in File Explorer." },
+            { "Abre uma janela para localizar a pasta ou o executável solicitado.", "Opens a window to locate the requested folder or executable." },
+            { "Lê o platformio.ini e lista automaticamente os ambientes disponíveis.", "Reads platformio.ini and automatically lists available environments." },
+            { "Procura novamente os artefatos gerados na pasta .pio\\build do projeto.", "Scans the project's .pio\\build folder again for generated files." },
+            { "Copia o artefato selecionado para a área de transferência do Windows.", "Copies the selected file to the Windows clipboard." },
+            { "Calcula e copia o código SHA-256 do artefato selecionado.", "Calculates and copies the selected file's SHA-256." },
+            { "Salva uma cópia do arquivo gerado selecionado no local escolhido.", "Saves a copy of the selected generated file to the chosen location." },
+            { "Salva diretamente o firmware.bin principal no local escolhido.", "Saves the main firmware.bin directly to the chosen location." },
+            { "Cria um ZIP com firmware.bin, SHA-256 e informações da compilação.", "Creates a ZIP containing firmware.bin, SHA-256 and build information." },
+            { "Mostra as compilações anteriores, duração, resultado e SHA-256.", "Shows previous builds, duration, result and SHA-256." },
+            { "Consulta o GitHub para verificar se existe uma versão mais recente do aplicativo.", "Checks GitHub for a newer application version." },
+            { "Cria um script CMD para compilar este projeto fora do aplicativo.", "Creates a CMD script to build this project outside the application." },
+            { "Cria um script PowerShell para compilar este projeto fora do aplicativo.", "Creates a PowerShell script to build this project outside the application." },
+            { "Abre as configurações visuais e permite escolher a cor do tema.", "Opens appearance settings and lets you choose the theme color." },
+            { "Executa esta ação.", "Runs this action." }
+            ,{ "Firmware principal", "Main firmware" }, { "Compilando firmware", "Building firmware" }, { "Preparando compilação...", "Preparing build..." },
+            { "Aguarde. Os controles serão liberados ao terminar.", "Please wait. Controls will be enabled when finished." },
+            { "Arquivo gerado", "Generated file" }, { "Scripts de compilação", "Build scripts" }, { "Clique para entender: ", "Click to learn: " },
+            { "Escolhe um dos arquivos produzidos pelo PlatformIO. Esta escolha é usada pelos botões Copiar arquivo e Copiar SHA-256; ela não muda o processo de compilação.", "Selects one of the files produced by PlatformIO. This selection is used by Copy file and Copy SHA-256; it does not change the build process." },
+            { "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware.", "Creates a .BAT or .PS1 command file to rebuild the project outside this application. These scripts are not firmware." }
+            ,{ "Arquivo já produzido pela última compilação do PlatformIO.", "File already produced by the latest PlatformIO build." }
+            ,{ "Selecione o arquivo gerado que deseja copiar ou consultar o SHA-256.", "Select the generated file you want to copy or inspect its SHA-256." }
+            ,{ "Arquivos de comando para repetir a compilação fora do aplicativo.", "Command files used to repeat the build outside the application." }
+            ,{ "Azul", "Blue" }, { "Turquesa", "Turquoise" }, { "Verde", "Green" }, { "Roxo", "Purple" }, { "Laranja", "Orange" }, { "Vermelho", "Red" }, { "Grafite", "Graphite" }
+            ,{ "A pasta selecionada não contém platformio.ini.", "The selected folder does not contain platformio.ini." }, { "Projeto inválido", "Invalid project" },
+            { "Informe um nome para o projeto.", "Enter a project name." }, { "A pasta do projeto não existe.", "The project folder does not exist." },
+            { "O executável do PlatformIO não foi encontrado.", "The PlatformIO executable was not found." }, { "Informe ou detecte um ambiente PlatformIO.", "Enter or detect a PlatformIO environment." },
+            { "platformio.ini não encontrado.", "platformio.ini was not found." }, { "platformio.exe não encontrado.", "platformio.exe was not found." },
+            { "Informe o ambiente PlatformIO.", "Select a PlatformIO environment." }, { "Selecione um artefato válido.", "Select a valid generated file." },
+            { "Selecione um arquivo gerado válido.", "Select a valid generated file." }, { "firmware.bin não encontrado. Compile o projeto primeiro.", "firmware.bin was not found. Build the project first." },
+            { "Firmware indisponível", "Firmware unavailable" }, { "Remover projeto", "Remove project" }
+        };
+        static readonly Dictionary<string, string> Spanish = new Dictionary<string, string>
+        {
+            { "Sentinela Firmware Studio", "Sentinela Firmware Studio" }, { "PROJETOS SALVOS", "PROYECTOS GUARDADOS" },
+            { "Configuração do projeto", "Configuración del proyecto" }, { "Compilação e arquivos", "Compilación y archivos" },
+            { "CONFIGURAÇÃO DO PROJETO", "CONFIGURACIÓN DEL PROYECTO" }, { "Novo manual", "Nuevo manual" }, { "Editar configuração", "Editar configuración" },
+            { "Salvar configuração", "Guardar configuración" }, { "Cancelar edição", "Cancelar edición" }, { "Nome", "Nombre" },
+            { "Pasta do projeto", "Carpeta del proyecto" }, { "PlatformIO", "PlatformIO" }, { "Ambiente", "Entorno" },
+            { "Procurar...", "Buscar..." }, { "Detectar", "Detectar" }, { "Abrir pasta", "Abrir carpeta" },
+            { "ARQUIVOS GERADOS E EXPORTAÇÃO", "ARCHIVOS GENERADOS Y EXPORTACIÓN" }, { "Arquivo gerado:", "Archivo generado:" },
+            { "Atualizar", "Actualizar" }, { "Copiar arquivo", "Copiar archivo" }, { "Salvar como...", "Guardar como..." },
+            { "Copiar SHA-256", "Copiar SHA-256" }, { "Scripts:", "Scripts:" }, { "Exportar .BAT", "Exportar .BAT" },
+            { "Exportar .PS1", "Exportar .PS1" }, { "Compilar", "Compilar" }, { "Limpar e compilar", "Limpiar y compilar" },
+            { "Salvar firmware", "Guardar firmware" }, { "Criar pacote ZIP", "Crear paquete ZIP" }, { "Histórico", "Historial" },
+            { "Adicionar por pasta", "Añadir desde carpeta" }, { "Remover", "Eliminar" }, { "Atualizações", "Actualizaciones" },
+            { "Configurações", "Configuración" }, { "Escolha a cor do tema", "Elija el color del tema" },
+            { "Configurações de aparência", "Configuración de apariencia" }, { "Idioma da interface", "Idioma de la interfaz" },
+            { "Português", "Portugués" }, { "Inglês", "Inglés" }, { "Espanhol", "Español" },
+            { "Pronto", "Listo" }, { "Projeto", "Proyecto" }, { "Data e hora", "Fecha y hora" },
+            { "Resultado", "Resultado" }, { "Duração", "Duración" }, { "Tamanho", "Tamaño" },
+            { "Caminho do firmware", "Ruta del firmware" }, { "Histórico de compilações", "Historial de compilaciones" },
+            { "Sucesso", "Éxito" }, { "Falha", "Error" }, { "Compilação concluída", "Compilación completada" },
+            { "Falha na compilação", "Error de compilación" }, { "Atualização disponível", "Actualización disponible" },
+            { "Fluxo automático: selecione uma pasta com platformio.ini e o projeto será cadastrado com os dados detectados.", "Flujo automático: seleccione una carpeta con platformio.ini y se registrarán los datos detectados." },
+            { "Fluxo manual: limpa os campos para cadastrar nome, pasta, PlatformIO e ambiente separadamente.", "Flujo manual: limpia los campos para introducir nombre, carpeta, PlatformIO y entorno por separado." },
+            { "Remove apenas o caminho salvo da lista. A pasta e os arquivos do projeto não são excluídos.", "Elimina solo la ruta guardada de la lista. La carpeta y los archivos no se borran." },
+            { "Compila o projeto selecionado usando o ambiente PlatformIO informado.", "Compila el proyecto seleccionado con el entorno PlatformIO elegido." },
+            { "Apaga os arquivos temporários da compilação anterior e compila o projeto novamente.", "Elimina los archivos temporales anteriores y vuelve a compilar." },
+            { "Desbloqueia o nome e os caminhos para permitir alterações controladas.", "Desbloquea el nombre y las rutas para una edición controlada." },
+            { "Salva as alterações e protege novamente os campos de configuração.", "Guarda los cambios y vuelve a bloquear los campos." },
+            { "Descarta as alterações feitas e restaura os últimos valores salvos.", "Descarta los cambios y restaura los últimos valores guardados." },
+            { "Abre a pasta do projeto selecionado no Explorador de Arquivos.", "Abre la carpeta del proyecto en el Explorador de archivos." },
+            { "Abre uma janela para localizar a pasta ou o executável solicitado.", "Abre una ventana para localizar la carpeta o el ejecutable." },
+            { "Lê o platformio.ini e lista automaticamente os ambientes disponíveis.", "Lee platformio.ini y muestra automáticamente los entornos disponibles." },
+            { "Procura novamente os artefatos gerados na pasta .pio\\build do projeto.", "Vuelve a buscar archivos generados en .pio\\build." },
+            { "Copia o artefato selecionado para a área de transferência do Windows.", "Copia el archivo seleccionado al portapapeles de Windows." },
+            { "Calcula e copia o código SHA-256 do artefato selecionado.", "Calcula y copia el SHA-256 del archivo seleccionado." },
+            { "Salva uma cópia do arquivo gerado selecionado no local escolhido.", "Guarda una copia del archivo seleccionado en la ubicación elegida." },
+            { "Salva diretamente o firmware.bin principal no local escolhido.", "Guarda directamente el firmware.bin principal." },
+            { "Cria um ZIP com firmware.bin, SHA-256 e informações da compilação.", "Crea un ZIP con firmware.bin, SHA-256 e información de compilación." },
+            { "Mostra as compilações anteriores, duração, resultado e SHA-256.", "Muestra compilaciones anteriores, duración, resultado y SHA-256." },
+            { "Consulta o GitHub para verificar se existe uma versão mais recente do aplicativo.", "Consulta GitHub para buscar una versión más reciente." },
+            { "Cria um script CMD para compilar este projeto fora do aplicativo.", "Crea un script CMD para compilar fuera de la aplicación." },
+            { "Cria um script PowerShell para compilar este projeto fora do aplicativo.", "Crea un script PowerShell para compilar fuera de la aplicación." },
+            { "Abre as configurações visuais e permite escolher a cor do tema.", "Abre la configuración visual y permite elegir el color del tema." },
+            { "Executa esta ação.", "Ejecuta esta acción." }
+            ,{ "Firmware principal", "Firmware principal" }, { "Compilando firmware", "Compilando firmware" }, { "Preparando compilação...", "Preparando compilación..." },
+            { "Aguarde. Os controles serão liberados ao terminar.", "Espere. Los controles se habilitarán al finalizar." },
+            { "Arquivo gerado", "Archivo generado" }, { "Scripts de compilação", "Scripts de compilación" }, { "Clique para entender: ", "Haga clic para entender: " },
+            { "Escolhe um dos arquivos produzidos pelo PlatformIO. Esta escolha é usada pelos botões Copiar arquivo e Copiar SHA-256; ela não muda o processo de compilação.", "Selecciona uno de los archivos producidos por PlatformIO. Se usa para Copiar archivo y Copiar SHA-256; no cambia la compilación." },
+            { "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware.", "Crea un archivo .BAT o .PS1 para recompilar fuera de la aplicación. Estos scripts no son firmware." }
+            ,{ "Arquivo já produzido pela última compilação do PlatformIO.", "Archivo producido por la última compilación de PlatformIO." }
+            ,{ "Selecione o arquivo gerado que deseja copiar ou consultar o SHA-256.", "Seleccione el archivo generado que desea copiar o consultar mediante SHA-256." }
+            ,{ "Arquivos de comando para repetir a compilação fora do aplicativo.", "Archivos de comandos para repetir la compilación fuera de la aplicación." }
+            ,{ "Azul", "Azul" }, { "Turquesa", "Turquesa" }, { "Verde", "Verde" }, { "Roxo", "Morado" }, { "Laranja", "Naranja" }, { "Vermelho", "Rojo" }, { "Grafite", "Grafito" }
+            ,{ "A pasta selecionada não contém platformio.ini.", "La carpeta seleccionada no contiene platformio.ini." }, { "Projeto inválido", "Proyecto no válido" },
+            { "Informe um nome para o projeto.", "Introduzca un nombre para el proyecto." }, { "A pasta do projeto não existe.", "La carpeta del proyecto no existe." },
+            { "O executável do PlatformIO não foi encontrado.", "No se encontró el ejecutable de PlatformIO." }, { "Informe ou detecte um ambiente PlatformIO.", "Introduzca o detecte un entorno PlatformIO." },
+            { "platformio.ini não encontrado.", "No se encontró platformio.ini." }, { "platformio.exe não encontrado.", "No se encontró platformio.exe." },
+            { "Informe o ambiente PlatformIO.", "Seleccione un entorno PlatformIO." }, { "Selecione um artefato válido.", "Seleccione un archivo generado válido." },
+            { "Selecione um arquivo gerado válido.", "Seleccione un archivo generado válido." }, { "firmware.bin não encontrado. Compile o projeto primeiro.", "No se encontró firmware.bin. Compile primero el proyecto." },
+            { "Firmware indisponível", "Firmware no disponible" }, { "Remover projeto", "Eliminar proyecto" }
+        };
+        public static string T(string portuguese)
+        {
+            string translated;
+            if (Language == "en" && English.TryGetValue(portuguese, out translated)) return translated;
+            if (Language == "es" && Spanish.TryGetValue(portuguese, out translated)) return translated;
+            return portuguese;
+        }
+    }
+
     [Serializable]
     public class FirmwareProject
     {
@@ -53,7 +189,8 @@ namespace SentinelaFirmwareStudio
         public List<FirmwareProject> Projects { get; set; }
         public List<BuildHistoryEntry> BuildHistory { get; set; }
         public string ThemeName { get; set; }
-        public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; }
+        public string Language { get; set; }
+        public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; Language = "pt"; }
     }
 
     public class BuildProgressForm : Form
@@ -62,7 +199,7 @@ namespace SentinelaFirmwareStudio
 
         public BuildProgressForm()
         {
-            Text = "Compilando firmware";
+            Text = I18n.T("Compilando firmware");
             Width = 460;
             Height = 155;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -70,7 +207,7 @@ namespace SentinelaFirmwareStudio
             ControlBox = false;
             ShowInTaskbar = false;
 
-            messageLabel.Text = "Preparando compilação...";
+            messageLabel.Text = I18n.T("Preparando compilação...");
             messageLabel.AutoSize = false;
             messageLabel.Dock = DockStyle.Top;
             messageLabel.Height = 52;
@@ -78,7 +215,7 @@ namespace SentinelaFirmwareStudio
             messageLabel.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
 
             var progress = new ProgressBar { Dock = DockStyle.Top, Height = 22, Style = ProgressBarStyle.Marquee, MarqueeAnimationSpeed = 25 };
-            var note = new Label { Text = "Aguarde. Os controles serão liberados ao terminar.", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
+            var note = new Label { Text = I18n.T("Aguarde. Os controles serão liberados ao terminar."), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
             Controls.Add(note);
             Controls.Add(progress);
             Controls.Add(messageLabel);
@@ -90,20 +227,22 @@ namespace SentinelaFirmwareStudio
     public class ThemePickerForm : Form
     {
         public string SelectedTheme { get; private set; }
+        public string SelectedLanguage { get; private set; }
 
-        public ThemePickerForm(string currentTheme, Dictionary<string, Color> themes)
+        public ThemePickerForm(string currentTheme, string currentLanguage, Dictionary<string, Color> themes)
         {
             SelectedTheme = currentTheme;
-            Text = "Configurações de aparência";
+            SelectedLanguage = currentLanguage;
+            Text = I18n.T("Configurações de aparência");
             Width = 430;
-            Height = 210;
+            Height = 285;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
 
-            var title = new Label { Text = "Escolha a cor do tema", Dock = DockStyle.Top, Height = 45, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
-            var palette = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), FlowDirection = FlowDirection.LeftToRight };
+            var title = new Label { Text = I18n.T("Escolha a cor do tema"), Dock = DockStyle.Top, Height = 40, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
+            var palette = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 76, Padding = new Padding(16, 4, 16, 4), FlowDirection = FlowDirection.LeftToRight };
             var tooltip = new ToolTip { ShowAlways = true };
 
             foreach (var theme in themes)
@@ -115,11 +254,26 @@ namespace SentinelaFirmwareStudio
                 var path = new GraphicsPath();
                 path.AddEllipse(1, 1, 42, 42);
                 colorButton.Region = new Region(path);
-                tooltip.SetToolTip(colorButton, name);
-                colorButton.Click += delegate { SelectedTheme = name; DialogResult = DialogResult.OK; Close(); };
+                tooltip.SetToolTip(colorButton, I18n.T(name));
+                colorButton.Click += delegate { SelectedTheme = name; };
                 palette.Controls.Add(colorButton);
             }
 
+            var languagePanel = new TableLayoutPanel { Dock = DockStyle.Top, Height = 55, ColumnCount = 2, Padding = new Padding(20, 8, 20, 4) };
+            languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
+            languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            languagePanel.Controls.Add(new Label { Text = I18n.T("Idioma da interface"), AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
+            var languageBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            languageBox.Items.AddRange(new object[] { "Português", "English", "Español" });
+            languageBox.SelectedIndex = currentLanguage == "en" ? 1 : currentLanguage == "es" ? 2 : 0;
+            languageBox.SelectedIndexChanged += delegate { SelectedLanguage = languageBox.SelectedIndex == 1 ? "en" : languageBox.SelectedIndex == 2 ? "es" : "pt"; };
+            languagePanel.Controls.Add(languageBox, 1, 0);
+            var saveButton = new Button { Text = I18n.T("Salvar configuração"), AutoSize = true, Height = 32, Anchor = AnchorStyles.None };
+            saveButton.Click += delegate { DialogResult = DialogResult.OK; Close(); };
+            var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
+            bottom.Controls.Add(saveButton);
+            Controls.Add(bottom);
+            Controls.Add(languagePanel);
             Controls.Add(palette);
             Controls.Add(title);
         }
@@ -180,6 +334,9 @@ namespace SentinelaFirmwareStudio
         Process activeProcess;
         Stopwatch buildStopwatch = new Stopwatch();
         BuildProgressForm progressForm;
+        readonly Dictionary<Control, string> localizationKeys = new Dictionary<Control, string>();
+        readonly Dictionary<Button, string> buttonKeys = new Dictionary<Button, string>();
+        readonly Dictionary<Control, string> tooltipKeys = new Dictionary<Control, string>();
         readonly Dictionary<string, Color> themes = new Dictionary<string, Color>
         {
             { "Azul", Color.FromArgb(0, 120, 215) },
@@ -202,6 +359,9 @@ namespace SentinelaFirmwareStudio
             Font = new Font("Segoe UI", 9F);
             BuildUi();
             LoadSettings();
+            I18n.Language = string.IsNullOrWhiteSpace(settings.Language) ? "pt" : settings.Language;
+            CaptureLocalizableControls(this);
+            ApplyLanguage();
             ApplyTheme();
             Shown += delegate { BeginInvoke(new Action(delegate { CheckForUpdates(false); })); };
         }
@@ -306,8 +466,8 @@ namespace SentinelaFirmwareStudio
             artifactBox.SelectedIndexChanged += delegate { UpdateHash(); };
             artifactsLayout.Controls.Add(artifactBox, 1, 0);
             artifactsLayout.Controls.Add(MakeHelpButton("Arquivo gerado", "Escolhe um dos arquivos produzidos pelo PlatformIO. Esta escolha é usada pelos botões Copiar arquivo e Copiar SHA-256; ela não muda o processo de compilação."), 2, 0);
-            buttonTooltips.SetToolTip(artifactLabel, "Arquivo já produzido pela última compilação do PlatformIO.");
-            buttonTooltips.SetToolTip(artifactBox, "Selecione o arquivo gerado que deseja copiar ou consultar o SHA-256.");
+            SetLocalizedTooltip(artifactLabel, "Arquivo já produzido pela última compilação do PlatformIO.");
+            SetLocalizedTooltip(artifactBox, "Selecione o arquivo gerado que deseja copiar ou consultar o SHA-256.");
 
             var artifactButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 2, 0, 0), FlowDirection = FlowDirection.LeftToRight };
             artifactButtons.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
@@ -324,7 +484,7 @@ namespace SentinelaFirmwareStudio
             scriptControls.Controls.Add(MakeButton("Exportar .PS1", delegate { ExportScript(".ps1"); }));
             artifactsLayout.Controls.Add(scriptControls, 1, 2);
             artifactsLayout.Controls.Add(MakeHelpButton("Scripts de compilação", "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware."), 2, 2);
-            buttonTooltips.SetToolTip(scriptsLabel, "Arquivos de comando para repetir a compilação fora do aplicativo.");
+            SetLocalizedTooltip(scriptsLabel, "Arquivos de comando para repetir a compilação fora do aplicativo.");
             artifactsGroup.Controls.Add(artifactsLayout);
             compilationLayout.Controls.Add(artifactsGroup, 0, 0);
 
@@ -367,8 +527,9 @@ namespace SentinelaFirmwareStudio
         Button MakeButton(string text, EventHandler click)
         {
             var button = new Button { Text = text, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            buttonKeys[button] = text;
             button.Image = CreateButtonIcon(GetButtonGlyph(text));
-            buttonTooltips.SetToolTip(button, GetButtonTooltip(text));
+            buttonTooltips.SetToolTip(button, I18n.T(GetButtonTooltip(text)));
             button.Click += click;
             return button;
         }
@@ -376,8 +537,8 @@ namespace SentinelaFirmwareStudio
         Button MakeHelpButton(string title, string explanation)
         {
             var button = new Button { Text = "?", Width = 28, Height = 28, MinimumSize = new Size(28, 28), Margin = new Padding(3), Font = new Font(this.Font, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Tag = "help" };
-            buttonTooltips.SetToolTip(button, "Clique para entender: " + title);
-            button.Click += delegate { MessageBox.Show(explanation, title, MessageBoxButtons.OK, MessageBoxIcon.Information); };
+            SetLocalizedTooltip(button, "Clique para entender: " + title);
+            button.Click += delegate { MessageBox.Show(I18n.T(explanation), I18n.T(title), MessageBoxButtons.OK, MessageBoxIcon.Information); };
             return button;
         }
 
@@ -453,13 +614,55 @@ namespace SentinelaFirmwareStudio
 
         void OpenThemeSettings()
         {
-            using (var dialog = new ThemePickerForm(settings.ThemeName, themes))
+            using (var dialog = new ThemePickerForm(settings.ThemeName, settings.Language ?? "pt", themes))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 settings.ThemeName = dialog.SelectedTheme;
+                settings.Language = dialog.SelectedLanguage;
+                I18n.Language = settings.Language;
                 SaveSettings();
+                ApplyLanguage();
                 ApplyTheme();
             }
+        }
+
+        void CaptureLocalizableControls(Control parent)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                if ((control is Label || control is GroupBox || control is TabPage) && !string.IsNullOrWhiteSpace(control.Text)) localizationKeys[control] = control.Text;
+                CaptureLocalizableControls(control);
+            }
+        }
+
+        void ApplyLanguage()
+        {
+            Text = I18n.T("Sentinela Firmware Studio");
+            foreach (var pair in localizationKeys) pair.Key.Text = I18n.T(pair.Value);
+            foreach (var pair in buttonKeys)
+            {
+                pair.Key.Text = I18n.T(pair.Value);
+                buttonTooltips.SetToolTip(pair.Key, I18n.T(GetButtonTooltip(pair.Value)));
+            }
+            foreach (var pair in tooltipKeys) buttonTooltips.SetToolTip(pair.Key, TranslateTooltipKey(pair.Value));
+            statusLabel.Text = I18n.T("Pronto");
+        }
+
+        void SetLocalizedTooltip(Control control, string portugueseKey)
+        {
+            tooltipKeys[control] = portugueseKey;
+            buttonTooltips.SetToolTip(control, TranslateTooltipKey(portugueseKey));
+        }
+
+        string TranslateTooltipKey(string key)
+        {
+            if (key.StartsWith("Clique para entender: ")) return I18n.T("Clique para entender: ") + I18n.T(key.Substring("Clique para entender: ".Length));
+            return I18n.T(key);
+        }
+
+        string L(string portuguese, string english, string spanish)
+        {
+            return I18n.Language == "en" ? english : I18n.Language == "es" ? spanish : portuguese;
         }
 
         void ApplyTheme()
@@ -498,7 +701,8 @@ namespace SentinelaFirmwareStudio
                     button.FlatAppearance.BorderColor = accent;
                     button.BackColor = accent;
                     button.ForeColor = Color.White;
-                    button.Image = string.Equals(button.Tag as string, "help", StringComparison.Ordinal) ? null : CreateButtonIcon(GetButtonGlyph(button.Text), Color.White);
+                    string glyphKey = buttonKeys.ContainsKey(button) ? buttonKeys[button] : button.Text;
+                    button.Image = string.Equals(button.Tag as string, "help", StringComparison.Ordinal) ? null : CreateButtonIcon(GetButtonGlyph(glyphKey), Color.White);
                     button.FlatAppearance.MouseOverBackColor = BlendWithWhite(accent, 0.18F);
                     button.FlatAppearance.MouseDownBackColor = BlendWithWhite(accent, 0.32F);
                 }
@@ -627,7 +831,7 @@ namespace SentinelaFirmwareStudio
             environmentBox.Text = string.IsNullOrWhiteSpace(project.Environment) ? "esp32dev" : project.Environment;
             DetectEnvironments(false);
             RefreshArtifacts();
-            statusLabel.Text = "Projeto selecionado: " + project.Name;
+            statusLabel.Text = L("Projeto selecionado: ", "Selected project: ", "Proyecto seleccionado: ") + project.Name;
         }
 
         void BeginConfigurationEdit()
@@ -638,7 +842,7 @@ namespace SentinelaFirmwareStudio
             SetConfigurationEditMode(true);
             nameBox.Focus();
             nameBox.SelectAll();
-            statusLabel.Text = "Editando configuração — salve ou cancele para continuar";
+            statusLabel.Text = L("Editando configuração — salve ou cancele para continuar", "Editing settings — save or cancel to continue", "Editando configuración — guarde o cancele para continuar");
         }
 
         void BeginManualProjectCreation()
@@ -656,7 +860,7 @@ namespace SentinelaFirmwareStudio
             singleEnvironmentDetected = false;
             SetConfigurationEditMode(true);
             nameBox.Focus();
-            statusLabel.Text = "Novo projeto manual — preencha os campos e salve ou cancele";
+            statusLabel.Text = L("Novo projeto manual — preencha os campos e salve ou cancele", "New manual project — complete the fields and save or cancel", "Nuevo proyecto manual — complete los campos y guarde o cancele");
         }
 
         void CancelConfigurationEdit()
@@ -671,7 +875,7 @@ namespace SentinelaFirmwareStudio
                 else DisplaySelectedProject();
             }
             else DisplaySelectedProject();
-            statusLabel.Text = "Edição cancelada; valores salvos restaurados";
+            statusLabel.Text = L("Edição cancelada; valores salvos restaurados", "Editing canceled; saved values restored", "Edición cancelada; valores guardados restaurados");
         }
 
         void SetConfigurationEditMode(bool editing)
@@ -703,7 +907,7 @@ namespace SentinelaFirmwareStudio
             artifactBox.Items.Clear();
             hashLabel.Text = "SHA-256: —";
             statusLabel.ForeColor = themes.ContainsKey(settings.ThemeName ?? "") ? themes[settings.ThemeName] : themes["Azul"];
-            statusLabel.Text = "Selecione ou compile um projeto";
+            statusLabel.Text = L("Selecione ou compile um projeto", "Select or build a project", "Seleccione o compile un proyecto");
         }
 
         void AddProject()
@@ -713,7 +917,7 @@ namespace SentinelaFirmwareStudio
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 if (!File.Exists(Path.Combine(dialog.SelectedPath, "platformio.ini")))
                 {
-                    MessageBox.Show("A pasta selecionada não contém platformio.ini.", "Projeto inválido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(I18n.T("A pasta selecionada não contém platformio.ini."), I18n.T("Projeto inválido"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 var project = new FirmwareProject
@@ -735,7 +939,8 @@ namespace SentinelaFirmwareStudio
         {
             var project = SelectedProject;
             if (project == null) return;
-            if (MessageBox.Show("Remover '" + project.Name + "' da lista?\n\nA pasta e seus arquivos não serão apagados.", "Remover projeto", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            string removePrompt = L("Remover '" + project.Name + "' da lista?\n\nA pasta e seus arquivos não serão apagados.", "Remove '" + project.Name + "' from the list?\n\nThe project folder and files will not be deleted.", "¿Eliminar '" + project.Name + "' de la lista?\n\nLa carpeta y los archivos no se borrarán.");
+            if (MessageBox.Show(removePrompt, I18n.T("Remover projeto"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
             settings.Projects.Remove(project);
             SaveSettings();
             RefreshProjectList();
@@ -745,11 +950,11 @@ namespace SentinelaFirmwareStudio
         {
             var project = SelectedProject;
             if (project == null && !creatingManualProject) return;
-            if (string.IsNullOrWhiteSpace(nameBox.Text)) { MessageBox.Show("Informe um nome para o projeto."); nameBox.Focus(); return; }
-            if (!Directory.Exists(folderBox.Text.Trim())) { MessageBox.Show("A pasta do projeto não existe."); folderBox.Focus(); return; }
-            if (!File.Exists(Path.Combine(folderBox.Text.Trim(), "platformio.ini"))) { MessageBox.Show("A pasta selecionada não contém platformio.ini."); folderBox.Focus(); return; }
-            if (!File.Exists(platformIoBox.Text.Trim())) { MessageBox.Show("O executável do PlatformIO não foi encontrado."); platformIoBox.Focus(); return; }
-            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show("Informe ou detecte um ambiente PlatformIO."); environmentBox.Focus(); return; }
+            if (string.IsNullOrWhiteSpace(nameBox.Text)) { MessageBox.Show(I18n.T("Informe um nome para o projeto.")); nameBox.Focus(); return; }
+            if (!Directory.Exists(folderBox.Text.Trim())) { MessageBox.Show(I18n.T("A pasta do projeto não existe.")); folderBox.Focus(); return; }
+            if (!File.Exists(Path.Combine(folderBox.Text.Trim(), "platformio.ini"))) { MessageBox.Show(I18n.T("A pasta selecionada não contém platformio.ini.")); folderBox.Focus(); return; }
+            if (!File.Exists(platformIoBox.Text.Trim())) { MessageBox.Show(I18n.T("O executável do PlatformIO não foi encontrado.")); platformIoBox.Focus(); return; }
+            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show(I18n.T("Informe ou detecte um ambiente PlatformIO.")); environmentBox.Focus(); return; }
             if (creatingManualProject)
             {
                 project = new FirmwareProject();
@@ -765,7 +970,7 @@ namespace SentinelaFirmwareStudio
             SetConfigurationEditMode(false);
             RefreshProjectList();
             projects.SelectedItem = project;
-            statusLabel.Text = "Configuração salva";
+            statusLabel.Text = L("Configuração salva", "Settings saved", "Configuración guardada");
         }
 
         void BrowseProjectFolder()
@@ -785,7 +990,7 @@ namespace SentinelaFirmwareStudio
         {
             string current = environmentBox.Text;
             string ini = Path.Combine(folderBox.Text, "platformio.ini");
-            if (!File.Exists(ini)) { if (notify) MessageBox.Show("platformio.ini não encontrado."); return; }
+            if (!File.Exists(ini)) { if (notify) MessageBox.Show(I18n.T("platformio.ini não encontrado.")); return; }
             var found = Regex.Matches(File.ReadAllText(ini), @"(?im)^\s*\[env:([^\]]+)\]");
             environmentBox.Items.Clear();
             foreach (Match match in found) environmentBox.Items.Add(match.Groups[1].Value.Trim());
@@ -795,15 +1000,15 @@ namespace SentinelaFirmwareStudio
             else if (environmentBox.Items.Count > 0) environmentBox.SelectedIndex = 0;
             environmentBox.DropDownStyle = ComboBoxStyle.DropDownList;
             environmentBox.Enabled = environmentBox.Items.Count > 1;
-            if (notify) statusLabel.Text = environmentBox.Items.Count + " ambiente(s) detectado(s)";
+            if (notify) statusLabel.Text = environmentBox.Items.Count + L(" ambiente(s) detectado(s)", " environment(s) detected", " entorno(s) detectado(s)");
         }
 
         bool ValidateBuildInputs()
         {
-            if (!Directory.Exists(folderBox.Text)) { MessageBox.Show("A pasta do projeto não existe."); return false; }
-            if (!File.Exists(Path.Combine(folderBox.Text, "platformio.ini"))) { MessageBox.Show("platformio.ini não encontrado."); return false; }
-            if (!File.Exists(platformIoBox.Text)) { MessageBox.Show("platformio.exe não encontrado."); return false; }
-            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show("Informe o ambiente PlatformIO."); return false; }
+            if (!Directory.Exists(folderBox.Text)) { MessageBox.Show(I18n.T("A pasta do projeto não existe.")); return false; }
+            if (!File.Exists(Path.Combine(folderBox.Text, "platformio.ini"))) { MessageBox.Show(I18n.T("platformio.ini não encontrado.")); return false; }
+            if (!File.Exists(platformIoBox.Text)) { MessageBox.Show(I18n.T("platformio.exe não encontrado.")); return false; }
+            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show(I18n.T("Informe o ambiente PlatformIO.")); return false; }
             return true;
         }
 
@@ -816,13 +1021,13 @@ namespace SentinelaFirmwareStudio
             logBox.Clear();
             buildStopwatch.Restart();
             SetBusy(true);
-            statusLabel.Text = cleanFirst ? "Limpando projeto..." : "Compilando...";
-            ShowBuildProgress(cleanFirst ? "Limpando arquivos anteriores..." : "Compilando o firmware...");
+            statusLabel.Text = cleanFirst ? L("Limpando projeto...", "Cleaning project...", "Limpiando proyecto...") : L("Compilando...", "Building...", "Compilando...");
+            ShowBuildProgress(cleanFirst ? L("Limpando arquivos anteriores...", "Cleaning previous files...", "Limpiando archivos anteriores...") : L("Compilando o firmware...", "Building firmware...", "Compilando firmware..."));
             if (cleanFirst) RunPlatformIo("run -e \"" + environmentBox.Text + "\" -t clean", delegate(bool ok) {
                 if (!ok) FinishBuild(false);
                 else {
-                    statusLabel.Text = "Compilando...";
-                    if (progressForm != null) progressForm.SetMessage("Limpeza concluída. Compilando o firmware...");
+                    statusLabel.Text = L("Compilando...", "Building...", "Compilando...");
+                    if (progressForm != null) progressForm.SetMessage(L("Limpeza concluída. Compilando o firmware...", "Clean completed. Building firmware...", "Limpieza completada. Compilando firmware..."));
                     RunPlatformIo("run -e \"" + environmentBox.Text + "\"", FinishBuild);
                 }
             });
@@ -889,7 +1094,7 @@ namespace SentinelaFirmwareStudio
             Activate();
             SetBusy(false);
             statusLabel.ForeColor = success ? Color.ForestGreen : Color.Firebrick;
-            statusLabel.Text = success ? "Compilação concluída com sucesso" : "Falha na compilação";
+            statusLabel.Text = success ? L("Compilação concluída com sucesso", "Build completed successfully", "Compilación completada con éxito") : I18n.T("Falha na compilação");
             RefreshArtifacts();
             string firmware = GetMainFirmwarePath();
             string sha = success && firmware != null && File.Exists(firmware) ? CalculateSha256(firmware) : "—";
@@ -909,9 +1114,9 @@ namespace SentinelaFirmwareStudio
             if (settings.BuildHistory.Count > 100) settings.BuildHistory.RemoveRange(100, settings.BuildHistory.Count - 100);
             SaveSettings();
             string summary = success
-                ? "Compilação concluída com sucesso.\n\nFirmware: " + (firmware == null ? "não localizado" : Path.GetFileName(firmware)) + "\nTamanho: " + size + "\nSHA-256: " + sha + "\nDuração: " + historyEntry.Duration + "\nData: " + historyEntry.Date
-                : "A compilação falhou.\n\nDuração: " + historyEntry.Duration + "\nConsulte o log para identificar o erro.";
-            MessageBox.Show(summary, success ? "Compilação concluída" : "Falha na compilação", MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+                ? L("Compilação concluída com sucesso.\n\nFirmware: ", "Build completed successfully.\n\nFirmware: ", "Compilación completada con éxito.\n\nFirmware: ") + (firmware == null ? L("não localizado", "not found", "no encontrado") : Path.GetFileName(firmware)) + L("\nTamanho: ", "\nSize: ", "\nTamaño: ") + size + "\nSHA-256: " + sha + L("\nDuração: ", "\nDuration: ", "\nDuración: ") + historyEntry.Duration + L("\nData: ", "\nDate: ", "\nFecha: ") + historyEntry.Date
+                : L("A compilação falhou.\n\nDuração: ", "The build failed.\n\nDuration: ", "La compilación falló.\n\nDuración: ") + historyEntry.Duration + L("\nConsulte o log para identificar o erro.", "\nCheck the log to identify the error.", "\nConsulte el registro para identificar el error.");
+            MessageBox.Show(summary, success ? I18n.T("Compilação concluída") : I18n.T("Falha na compilação"), MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             if (success) System.Media.SystemSounds.Asterisk.Play();
             else System.Media.SystemSounds.Hand.Play();
         }
@@ -963,7 +1168,7 @@ namespace SentinelaFirmwareStudio
                         ? file.Substring(build.TrimEnd(Path.DirectorySeparatorChar).Length).TrimStart(Path.DirectorySeparatorChar)
                         : Path.GetFileName(file);
                     bool mainFirmware = Path.GetFileName(file).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase);
-                    artifactBox.Items.Add(new ArtifactItem { DisplayName = mainFirmware ? "★ " + relative + " — Firmware principal" : relative, FullPath = file });
+                    artifactBox.Items.Add(new ArtifactItem { DisplayName = mainFirmware ? "★ " + relative + " — " + I18n.T("Firmware principal") : relative, FullPath = file });
                 }
             }
             ArtifactItem previousItem = artifactBox.Items.Cast<ArtifactItem>().FirstOrDefault(item => string.Equals(item.FullPath, previous, StringComparison.OrdinalIgnoreCase));
@@ -1009,31 +1214,31 @@ namespace SentinelaFirmwareStudio
         void CopyHash()
         {
             string file = SelectedArtifact;
-            if (file == null || !File.Exists(file)) { MessageBox.Show("Selecione um artefato válido."); return; }
+            if (file == null || !File.Exists(file)) { MessageBox.Show(I18n.T("Selecione um artefato válido.")); return; }
             Clipboard.SetText(CalculateSha256(file));
-            statusLabel.Text = "SHA-256 copiado";
+            statusLabel.Text = L("SHA-256 copiado", "SHA-256 copied", "SHA-256 copiado");
         }
 
         void CopyArtifactToClipboard()
         {
             string file = SelectedArtifact;
-            if (file == null || !File.Exists(file)) { MessageBox.Show("Selecione um artefato válido."); return; }
+            if (file == null || !File.Exists(file)) { MessageBox.Show(I18n.T("Selecione um artefato válido.")); return; }
             var list = new StringCollection();
             list.Add(file);
             Clipboard.SetFileDropList(list);
-            statusLabel.Text = "Arquivo copiado; cole-o no Explorador de Arquivos";
+            statusLabel.Text = L("Arquivo copiado; cole-o no Explorador de Arquivos", "File copied; paste it in File Explorer", "Archivo copiado; péguelo en el Explorador de archivos");
         }
 
         void SaveSelectedArtifactAs()
         {
             string file = SelectedArtifact;
-            if (file == null || !File.Exists(file)) { MessageBox.Show("Selecione um arquivo gerado válido."); return; }
+            if (file == null || !File.Exists(file)) { MessageBox.Show(I18n.T("Selecione um arquivo gerado válido.")); return; }
             string extension = Path.GetExtension(file);
             using (var dialog = new SaveFileDialog { FileName = Path.GetFileName(file), Filter = "Arquivo " + extension + "|*" + extension + "|Todos os arquivos|*.*" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(file, dialog.FileName, true);
-                statusLabel.Text = "Arquivo salvo em " + dialog.FileName;
+                statusLabel.Text = L("Arquivo salvo em ", "File saved to ", "Archivo guardado en ") + dialog.FileName;
             }
         }
 
@@ -1042,14 +1247,14 @@ namespace SentinelaFirmwareStudio
             string firmware = GetMainFirmwarePath();
             if (firmware == null)
             {
-                MessageBox.Show("firmware.bin não encontrado. Compile o projeto primeiro.", "Firmware indisponível", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(I18n.T("firmware.bin não encontrado. Compile o projeto primeiro."), I18n.T("Firmware indisponível"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             using (var dialog = new SaveFileDialog { FileName = "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(firmware, dialog.FileName, true);
-                statusLabel.Text = "Firmware salvo em " + dialog.FileName;
+                statusLabel.Text = L("Firmware salvo em ", "Firmware saved to ", "Firmware guardado en ") + dialog.FileName;
             }
         }
 
@@ -1058,7 +1263,7 @@ namespace SentinelaFirmwareStudio
             string firmware = GetMainFirmwarePath();
             if (firmware == null)
             {
-                MessageBox.Show("firmware.bin não encontrado. Compile o projeto primeiro.", "Firmware indisponível", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(I18n.T("firmware.bin não encontrado. Compile o projeto primeiro."), I18n.T("Firmware indisponível"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             string projectName = string.IsNullOrWhiteSpace(nameBox.Text) ? "sentinela" : Regex.Replace(nameBox.Text, @"[^A-Za-z0-9_-]", "-");
@@ -1075,30 +1280,31 @@ namespace SentinelaFirmwareStudio
                     using (var writer = new StreamWriter(archive.CreateEntry("firmware.sha256").Open(), new UTF8Encoding(false))) writer.WriteLine(sha + "  firmware.bin");
                     using (var writer = new StreamWriter(archive.CreateEntry("informacoes.txt").Open(), new UTF8Encoding(true)))
                     {
-                        writer.WriteLine("Projeto: " + nameBox.Text);
-                        writer.WriteLine("Ambiente: " + environmentBox.Text);
-                        writer.WriteLine("Data: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
-                        writer.WriteLine("Tamanho: " + FormatFileSize(new FileInfo(firmware).Length));
+                        writer.WriteLine(I18n.T("Projeto") + ": " + nameBox.Text);
+                        writer.WriteLine(I18n.T("Ambiente") + ": " + environmentBox.Text);
+                        writer.WriteLine(I18n.T("Data e hora") + ": " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
+                        writer.WriteLine(I18n.T("Tamanho") + ": " + FormatFileSize(new FileInfo(firmware).Length));
                         writer.WriteLine("SHA-256: " + sha);
                         writer.WriteLine("Aplicativo: Sentinela Firmware Studio v" + AppVersion);
                     }
                 }
-                statusLabel.Text = "Pacote ZIP criado em " + dialog.FileName;
+                statusLabel.Text = L("Pacote ZIP criado em ", "ZIP package created at ", "Paquete ZIP creado en ") + dialog.FileName;
             }
         }
 
         void ShowBuildHistory()
         {
-            var historyForm = new Form { Text = "Histórico de compilações", Width = 950, Height = 430, StartPosition = FormStartPosition.CenterParent, Icon = Icon };
+            var historyForm = new Form { Text = I18n.T("Histórico de compilações"), Width = 950, Height = 430, StartPosition = FormStartPosition.CenterParent, Icon = Icon };
             var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AutoGenerateColumns = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false, RowHeadersVisible = false };
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Project", HeaderText = "Projeto", MinimumWidth = 180 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Date", HeaderText = "Data e hora", MinimumWidth = 130 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Result", HeaderText = "Resultado", MinimumWidth = 80 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Duration", HeaderText = "Duração", MinimumWidth = 75 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwareSize", HeaderText = "Tamanho", MinimumWidth = 80 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwarePath", HeaderText = "Caminho do firmware", MinimumWidth = 260 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Project", HeaderText = I18n.T("Projeto"), MinimumWidth = 180 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Date", HeaderText = I18n.T("Data e hora"), MinimumWidth = 130 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Result", HeaderText = I18n.T("Resultado"), MinimumWidth = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Duration", HeaderText = I18n.T("Duração"), MinimumWidth = 75 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwareSize", HeaderText = I18n.T("Tamanho"), MinimumWidth = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwarePath", HeaderText = I18n.T("Caminho do firmware"), MinimumWidth = 260 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Sha256", HeaderText = "SHA-256", MinimumWidth = 300 });
             grid.DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList();
+            grid.CellFormatting += delegate(object sender, DataGridViewCellFormattingEventArgs e) { if (e.ColumnIndex == 2 && e.Value != null) e.Value = I18n.T(e.Value.ToString()); };
             grid.BackgroundColor = Color.White;
             historyForm.Controls.Add(grid);
             historyForm.ShowDialog(this);
@@ -1128,15 +1334,16 @@ namespace SentinelaFirmwareStudio
                     {
                         if (latest > current)
                         {
-                            if (MessageBox.Show("Uma nova versão está disponível: v" + latest + "\n\nVersão instalada: v" + current + "\n\nDeseja abrir a página segura de releases do GitHub?", "Atualização disponível", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                            string updatePrompt = L("Uma nova versão está disponível: v" + latest + "\n\nVersão instalada: v" + current + "\n\nDeseja abrir a página segura de releases do GitHub?", "A new version is available: v" + latest + "\n\nInstalled version: v" + current + "\n\nOpen the secure GitHub releases page?", "Hay una nueva versión disponible: v" + latest + "\n\nVersión instalada: v" + current + "\n\n¿Abrir la página segura de versiones de GitHub?");
+                            if (MessageBox.Show(updatePrompt, I18n.T("Atualização disponível"), MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                                 Process.Start(GitHubReleasesPage);
                         }
-                        else if (interactive) MessageBox.Show("Você já está usando a versão mais recente (v" + AppVersion + ").", "Atualizações", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        else if (interactive) MessageBox.Show(L("Você já está usando a versão mais recente (v" + AppVersion + ").", "You are already using the latest version (v" + AppVersion + ").", "Ya está usando la versión más reciente (v" + AppVersion + ")."), I18n.T("Atualizações"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }));
                 }
                 catch (Exception ex)
                 {
-                    if (interactive) BeginInvoke(new Action(delegate { MessageBox.Show("Não foi possível verificar atualizações agora.\n\n" + ex.Message, "Atualizações", MessageBoxButtons.OK, MessageBoxIcon.Warning); }));
+                    if (interactive) BeginInvoke(new Action(delegate { MessageBox.Show(L("Não foi possível verificar atualizações agora.\n\n", "Could not check for updates now.\n\n", "No se pudieron buscar actualizaciones ahora.\n\n") + ex.Message, I18n.T("Atualizações"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }));
                 }
             });
         }
@@ -1160,7 +1367,7 @@ namespace SentinelaFirmwareStudio
                     contents = "@echo off\r\ncd /d \"" + folderBox.Text + "\"\r\n\"" + platformIoBox.Text + "\" run -e \"" + environmentBox.Text + "\"\r\nif errorlevel 1 pause & exit /b 1\r\necho.\r\necho Compilacao concluida.\r\npause\r\n";
                     File.WriteAllText(dialog.FileName, contents, Encoding.Default);
                 }
-                statusLabel.Text = "Script " + extension.ToUpperInvariant() + " exportado";
+                statusLabel.Text = "Script " + extension.ToUpperInvariant() + L(" exportado", " exported", " exportado");
             }
         }
 

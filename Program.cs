@@ -190,6 +190,7 @@ namespace SentinelaFirmwareStudio
         public List<BuildHistoryEntry> BuildHistory { get; set; }
         public string ThemeName { get; set; }
         public string Language { get; set; }
+        public DateTime UpdateDeferredUntilUtc { get; set; }
         public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; Language = "pt"; }
     }
 
@@ -292,7 +293,8 @@ namespace SentinelaFirmwareStudio
 
     public class MainForm : Form
     {
-        const string AppVersion = "1.1.0";
+        const string AppVersion = "1.1.2";
+        const string UpdateAssetName = "SentinelaFirmwareStudio.exe";
         const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
         const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";
         readonly string settingsFolder = Path.Combine(
@@ -1312,6 +1314,7 @@ namespace SentinelaFirmwareStudio
 
         void CheckForUpdates(bool interactive)
         {
+            if (!interactive && settings.UpdateDeferredUntilUtc > DateTime.UtcNow) return;
             ThreadPool.QueueUserWorkItem(delegate
             {
                 try
@@ -1330,13 +1333,29 @@ namespace SentinelaFirmwareStudio
                     Version latest;
                     Version current;
                     if (!Version.TryParse(latestText, out latest) || !Version.TryParse(AppVersion, out current)) throw new Exception("Versão inválida.");
+                    string assetUrl = null;
+                    foreach (Match assetMatch in Regex.Matches(json, "\\\"browser_download_url\\\"\\s*:\\s*\\\"([^\\\"]+)\\\""))
+                    {
+                        string candidate = assetMatch.Groups[1].Value;
+                        if (candidate.EndsWith("/" + UpdateAssetName, StringComparison.OrdinalIgnoreCase)) { assetUrl = candidate; break; }
+                    }
+                    Match digestMatch = Regex.Match(json, "\\\"digest\\\"\\s*:\\s*\\\"sha256:([0-9a-fA-F]{64})\\\"");
+                    string expectedSha256 = digestMatch.Success ? digestMatch.Groups[1].Value : null;
                     BeginInvoke(new Action(delegate
                     {
                         if (latest > current)
                         {
-                            string updatePrompt = L("Uma nova versão está disponível: v" + latest + "\n\nVersão instalada: v" + current + "\n\nDeseja abrir a página segura de releases do GitHub?", "A new version is available: v" + latest + "\n\nInstalled version: v" + current + "\n\nOpen the secure GitHub releases page?", "Hay una nueva versión disponible: v" + latest + "\n\nVersión instalada: v" + current + "\n\n¿Abrir la página segura de versiones de GitHub?");
+                            string updatePrompt = L("Uma nova versão está disponível: v" + latest + "\n\nVersão instalada: v" + current + "\n\nDeseja baixar e instalar a atualização agora?\n\nSe escolher Não, perguntaremos novamente após 24 horas.", "A new version is available: v" + latest + "\n\nInstalled version: v" + current + "\n\nDownload and install the update now?\n\nIf you choose No, we will ask again after 24 hours.", "Hay una nueva versión disponible: v" + latest + "\n\nVersión instalada: v" + current + "\n\n¿Desea descargar e instalar la actualización ahora?\n\nSi elige No, volveremos a preguntar después de 24 horas.");
                             if (MessageBox.Show(updatePrompt, I18n.T("Atualização disponível"), MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                                Process.Start(GitHubReleasesPage);
+                            {
+                                if (string.IsNullOrWhiteSpace(assetUrl)) ShowUpdateFailure(L("A Release mais recente não contém o arquivo " + UpdateAssetName + ".", "The latest Release does not contain " + UpdateAssetName + ".", "La versión más reciente no contiene " + UpdateAssetName + "."));
+                                else DownloadAndInstallUpdate(assetUrl, latest, expectedSha256);
+                            }
+                            else
+                            {
+                                settings.UpdateDeferredUntilUtc = DateTime.UtcNow.AddHours(24);
+                                SaveSettings();
+                            }
                         }
                         else if (interactive) MessageBox.Show(L("Você já está usando a versão mais recente (v" + AppVersion + ").", "You are already using the latest version (v" + AppVersion + ").", "Ya está usando la versión más reciente (v" + AppVersion + ")."), I18n.T("Atualizações"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }));
@@ -1346,6 +1365,105 @@ namespace SentinelaFirmwareStudio
                     if (interactive) BeginInvoke(new Action(delegate { MessageBox.Show(L("Não foi possível verificar atualizações agora.\n\n", "Could not check for updates now.\n\n", "No se pudieron buscar actualizaciones ahora.\n\n") + ex.Message, I18n.T("Atualizações"), MessageBoxButtons.OK, MessageBoxIcon.Warning); }));
                 }
             });
+        }
+
+        void DownloadAndInstallUpdate(string downloadUrl, Version latest, string expectedSha256)
+        {
+            string updateFolder = Path.Combine(settingsFolder, "Updates");
+            Directory.CreateDirectory(updateFolder);
+            string downloadedFile = Path.Combine(updateFolder, "SentinelaFirmwareStudio-v" + latest + ".exe");
+            if (File.Exists(downloadedFile)) File.Delete(downloadedFile);
+
+            var progressForm = new Form
+            {
+                Text = L("Atualizando o sistema", "Updating application", "Actualizando la aplicación"),
+                Width = 500,
+                Height = 165,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                ControlBox = false,
+                StartPosition = FormStartPosition.CenterParent
+            };
+            var message = new Label { Text = L("Baixando a versão v" + latest + "...", "Downloading version v" + latest + "...", "Descargando la versión v" + latest + "..."), Dock = DockStyle.Top, Height = 55, TextAlign = ContentAlignment.MiddleCenter };
+            var progress = new ProgressBar { Dock = DockStyle.Top, Height = 24, Margin = new Padding(18), Style = ProgressBarStyle.Continuous };
+            var note = new Label { Text = L("O aplicativo será reiniciado automaticamente.", "The application will restart automatically.", "La aplicación se reiniciará automáticamente."), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
+            progressForm.Controls.Add(note);
+            progressForm.Controls.Add(progress);
+            progressForm.Controls.Add(message);
+
+            var client = new WebClient();
+            client.Headers[HttpRequestHeader.UserAgent] = "SentinelaFirmwareStudio/" + AppVersion;
+            client.DownloadProgressChanged += delegate(object sender, DownloadProgressChangedEventArgs e)
+            {
+                progress.Value = Math.Max(0, Math.Min(100, e.ProgressPercentage));
+                message.Text = L("Baixando a versão v" + latest + "... ", "Downloading version v" + latest + "... ", "Descargando la versión v" + latest + "... ") + e.ProgressPercentage + "%";
+            };
+            client.DownloadFileCompleted += delegate(object sender, System.ComponentModel.AsyncCompletedEventArgs e)
+            {
+                progressForm.Close();
+                client.Dispose();
+                if (e.Error != null || e.Cancelled)
+                {
+                    ShowUpdateFailure(e.Error == null ? L("O download foi cancelado.", "The download was cancelled.", "La descarga fue cancelada.") : e.Error.Message);
+                    return;
+                }
+                try
+                {
+                    ValidateDownloadedUpdate(downloadedFile, expectedSha256);
+                    StartUpdateHelper(downloadedFile);
+                }
+                catch (Exception ex) { ShowUpdateFailure(ex.Message); }
+            };
+            progressForm.Shown += delegate
+            {
+                try { client.DownloadFileAsync(new Uri(downloadUrl), downloadedFile); }
+                catch (Exception ex) { progressForm.Close(); client.Dispose(); ShowUpdateFailure(ex.Message); }
+            };
+            progressForm.ShowDialog(this);
+        }
+
+        void ValidateDownloadedUpdate(string file, string expectedSha256)
+        {
+            if (!File.Exists(file) || new FileInfo(file).Length < 10240) throw new Exception(L("O arquivo de atualização recebido é inválido.", "The downloaded update file is invalid.", "El archivo de actualización descargado no es válido."));
+            using (var stream = File.OpenRead(file))
+            {
+                if (stream.ReadByte() != 'M' || stream.ReadByte() != 'Z') throw new Exception(L("O arquivo baixado não é um executável Windows válido.", "The downloaded file is not a valid Windows executable.", "El archivo descargado no es un ejecutable de Windows válido."));
+            }
+            if (!string.IsNullOrWhiteSpace(expectedSha256) && !string.Equals(CalculateSha256(file), expectedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new Exception(L("A verificação SHA-256 da atualização falhou.", "The update SHA-256 verification failed.", "La verificación SHA-256 de la actualización falló."));
+        }
+
+        void StartUpdateHelper(string downloadedFile)
+        {
+            string script = Path.Combine(settingsFolder, "install-update-" + Guid.NewGuid().ToString("N") + ".cmd");
+            string executable = Application.ExecutablePath;
+            string contents = "@echo off\r\n" +
+                "setlocal\r\n" +
+                ":wait\r\n" +
+                "tasklist /FI \"PID eq " + Process.GetCurrentProcess().Id + "\" 2>NUL | find \"" + Process.GetCurrentProcess().Id + "\" >NUL\r\n" +
+                "if not errorlevel 1 (timeout /t 1 /nobreak >NUL & goto wait)\r\n" +
+                "copy /Y \"" + downloadedFile + "\" \"" + executable + "\" >NUL\r\n" +
+                "if errorlevel 1 (start \"\" \"" + GitHubReleasesPage + "\" & goto cleanup)\r\n" +
+                "start \"\" \"" + executable + "\"\r\n" +
+                ":cleanup\r\n" +
+                "del /F /Q \"" + downloadedFile + "\" >NUL 2>NUL\r\n" +
+                "del /F /Q \"%~f0\" >NUL 2>NUL\r\n";
+            File.WriteAllText(script, contents, Encoding.Default);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("COMSPEC") ?? "cmd.exe",
+                Arguments = "/c \"\"" + script + "\"\"",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            Application.Exit();
+        }
+
+        void ShowUpdateFailure(string details)
+        {
+            string text = L("Não foi possível instalar a atualização automaticamente.\n\n", "Could not install the update automatically.\n\n", "No se pudo instalar la actualización automáticamente.\n\n") + details + L("\n\nDeseja abrir a página da Release?", "\n\nOpen the Release page?", "\n\n¿Desea abrir la página de la versión?");
+            if (MessageBox.Show(text, I18n.T("Atualizações"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) Process.Start(GitHubReleasesPage);
         }
 
         void ExportScript(string extension)

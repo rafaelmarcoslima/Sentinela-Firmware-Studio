@@ -21,6 +21,8 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
     /reference:System.dll `
     /reference:System.Core.dll `
     /reference:System.Drawing.dll `
+    /reference:System.IO.Compression.dll `
+    /reference:System.IO.Compression.FileSystem.dll `
     /reference:System.Windows.Forms.dll `
     /reference:System.Xml.dll `
     $sourceFile

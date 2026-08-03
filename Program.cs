@@ -5,11 +5,14 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 
@@ -33,11 +36,24 @@ namespace SentinelaFirmwareStudio
     }
 
     [Serializable]
+    public class BuildHistoryEntry
+    {
+        public string Project { get; set; }
+        public string Date { get; set; }
+        public string Result { get; set; }
+        public string Duration { get; set; }
+        public string FirmwarePath { get; set; }
+        public string FirmwareSize { get; set; }
+        public string Sha256 { get; set; }
+    }
+
+    [Serializable]
     public class AppSettings
     {
         public List<FirmwareProject> Projects { get; set; }
+        public List<BuildHistoryEntry> BuildHistory { get; set; }
         public string ThemeName { get; set; }
-        public AppSettings() { Projects = new List<FirmwareProject>(); ThemeName = "Azul"; }
+        public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; }
     }
 
     public class BuildProgressForm : Form
@@ -122,6 +138,9 @@ namespace SentinelaFirmwareStudio
 
     public class MainForm : Form
     {
+        const string AppVersion = "1.1.0";
+        const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
+        const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";
         readonly string settingsFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SentinelaFirmwareStudio");
@@ -149,6 +168,7 @@ namespace SentinelaFirmwareStudio
         Button saveConfigButton = new Button();
         Button cancelEditButton = new Button();
         bool editingConfiguration;
+        bool singleEnvironmentDetected;
         bool creatingManualProject;
         FirmwareProject projectSelectedBeforeManualCreation;
         ToolTip buttonTooltips = new ToolTip { ShowAlways = true, InitialDelay = 350, ReshowDelay = 150, AutoPopDelay = 7000 };
@@ -158,6 +178,7 @@ namespace SentinelaFirmwareStudio
         TabPage compilationTab;
         Color currentAccent = Color.FromArgb(0, 120, 215);
         Process activeProcess;
+        Stopwatch buildStopwatch = new Stopwatch();
         BuildProgressForm progressForm;
         readonly Dictionary<string, Color> themes = new Dictionary<string, Color>
         {
@@ -182,6 +203,7 @@ namespace SentinelaFirmwareStudio
             BuildUi();
             LoadSettings();
             ApplyTheme();
+            Shown += delegate { BeginInvoke(new Action(delegate { CheckForUpdates(false); })); };
         }
 
         void BuildUi()
@@ -197,7 +219,11 @@ namespace SentinelaFirmwareStudio
             themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             themeToolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3), ForeColor = Color.White }, 0, 0);
-            themeToolbar.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }), 1, 0);
+            var headerActions = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent };
+            headerActions.Controls.Add(new Label { Text = "v" + AppVersion, AutoSize = true, ForeColor = Color.White, Margin = new Padding(3, 10, 8, 3) });
+            headerActions.Controls.Add(MakeButton("Verificar atualização", delegate { CheckForUpdates(true); }));
+            headerActions.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }));
+            themeToolbar.Controls.Add(headerActions, 1, 0);
             root.Controls.Add(themeToolbar, 0, 0);
             root.SetColumnSpan(themeToolbar, 2);
 
@@ -302,11 +328,14 @@ namespace SentinelaFirmwareStudio
             artifactsGroup.Controls.Add(artifactsLayout);
             compilationLayout.Controls.Add(artifactsGroup, 0, 0);
 
-            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(0, 5, 0, 3) };
+            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 5, 0, 3) };
             buildButton = MakeButton("Compilar", delegate { StartBuild(false); });
             cleanBuildButton = MakeButton("Limpar e compilar", delegate { StartBuild(true); });
             actions.Controls.Add(buildButton);
             actions.Controls.Add(cleanBuildButton);
+            actions.Controls.Add(MakeButton("Salvar firmware", delegate { SaveFirmware(); }));
+            actions.Controls.Add(MakeButton("Criar pacote ZIP", delegate { CreateFirmwarePackage(); }));
+            actions.Controls.Add(MakeButton("Histórico", delegate { ShowBuildHistory(); }));
             compilationLayout.Controls.Add(actions, 0, 1);
 
             var configurationFolderActions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(112, 5, 0, 3) };
@@ -369,6 +398,10 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Copiar arquivo")) return "Copia o artefato selecionado para a área de transferência do Windows.";
             if (text.StartsWith("Copiar SHA-256")) return "Calcula e copia o código SHA-256 do artefato selecionado.";
             if (text.StartsWith("Salvar como")) return "Salva uma cópia do arquivo gerado selecionado no local escolhido.";
+            if (text.StartsWith("Salvar firmware")) return "Salva diretamente o firmware.bin principal no local escolhido.";
+            if (text.StartsWith("Criar pacote ZIP")) return "Cria um ZIP com firmware.bin, SHA-256 e informações da compilação.";
+            if (text.StartsWith("Histórico")) return "Mostra as compilações anteriores, duração, resultado e SHA-256.";
+            if (text.StartsWith("Verificar atualização")) return "Consulta o GitHub para verificar se existe uma versão mais recente do aplicativo.";
             if (text.StartsWith("Salvar formato")) return "Localiza e salva o arquivo correspondente ao formato escolhido.";
             if (text.StartsWith("Exportar .BAT")) return "Cria um script CMD para compilar este projeto fora do aplicativo.";
             if (text.StartsWith("Exportar .PS1")) return "Cria um script PowerShell para compilar este projeto fora do aplicativo.";
@@ -391,6 +424,10 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Atualizar")) return "↻";
             if (text.StartsWith("Copiar")) return "⧉";
             if (text.StartsWith("Salvar como")) return "⇩";
+            if (text.StartsWith("Salvar firmware")) return "★";
+            if (text.StartsWith("Criar pacote ZIP")) return "▤";
+            if (text.StartsWith("Histórico")) return "◷";
+            if (text.StartsWith("Verificar atualização")) return "↥";
             if (text.StartsWith("Salvar formato")) return "⇩";
             if (text.StartsWith("Exportar")) return "⇩";
             if (text.StartsWith("Configurações")) return "⚙";
@@ -521,7 +558,18 @@ namespace SentinelaFirmwareStudio
 
         string DefaultPlatformIo()
         {
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".platformio", "penv", "Scripts", "platformio.exe");
+            string detected = FindPlatformIo();
+            return detected ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".platformio", "penv", "Scripts", "platformio.exe");
+        }
+
+        string FindPlatformIo()
+        {
+            var candidates = new List<string>();
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".platformio", "penv", "Scripts", "platformio.exe"));
+            string pathValue = Environment.GetEnvironmentVariable("PATH") ?? "";
+            foreach (string folder in pathValue.Split(Path.PathSeparator))
+                if (!string.IsNullOrWhiteSpace(folder)) candidates.Add(Path.Combine(folder.Trim(), "platformio.exe"));
+            return candidates.FirstOrDefault(File.Exists);
         }
 
         void LoadSettings()
@@ -535,6 +583,12 @@ namespace SentinelaFirmwareStudio
                 }
             }
             catch (Exception ex) { MessageBox.Show("Não foi possível carregar os projetos: " + ex.Message); }
+            if (settings.Projects == null) settings.Projects = new List<FirmwareProject>();
+            if (settings.BuildHistory == null) settings.BuildHistory = new List<BuildHistoryEntry>();
+            string detectedPlatformIo = FindPlatformIo();
+            if (detectedPlatformIo != null)
+                foreach (FirmwareProject project in settings.Projects)
+                    if (string.IsNullOrWhiteSpace(project.PlatformIoPath) || !File.Exists(project.PlatformIoPath)) project.PlatformIoPath = detectedPlatformIo;
             RefreshProjectList();
         }
 
@@ -596,9 +650,10 @@ namespace SentinelaFirmwareStudio
             ResetProjectView();
             nameBox.Clear();
             folderBox.Clear();
-            platformIoBox.Clear();
+            platformIoBox.Text = DefaultPlatformIo();
             environmentBox.Items.Clear();
             environmentBox.Text = "";
+            singleEnvironmentDetected = false;
             SetConfigurationEditMode(true);
             nameBox.Focus();
             statusLabel.Text = "Novo projeto manual — preencha os campos e salve ou cancele";
@@ -638,7 +693,7 @@ namespace SentinelaFirmwareStudio
             removeProjectButton.Enabled = hasProject && !editingConfiguration;
             buildButton.Enabled = hasProject && !editingConfiguration;
             cleanBuildButton.Enabled = hasProject && !editingConfiguration;
-            environmentBox.Enabled = hasEditableTarget;
+            environmentBox.Enabled = hasEditableTarget && !singleEnvironmentDetected;
             detectEnvironmentButton.Enabled = hasEditableTarget;
         }
 
@@ -734,8 +789,12 @@ namespace SentinelaFirmwareStudio
             var found = Regex.Matches(File.ReadAllText(ini), @"(?im)^\s*\[env:([^\]]+)\]");
             environmentBox.Items.Clear();
             foreach (Match match in found) environmentBox.Items.Add(match.Groups[1].Value.Trim());
-            if (!string.IsNullOrWhiteSpace(current)) environmentBox.Text = current;
+            singleEnvironmentDetected = environmentBox.Items.Count == 1;
+            if (singleEnvironmentDetected) environmentBox.SelectedIndex = 0;
+            else if (!string.IsNullOrWhiteSpace(current) && environmentBox.Items.Contains(current)) environmentBox.Text = current;
             else if (environmentBox.Items.Count > 0) environmentBox.SelectedIndex = 0;
+            environmentBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            environmentBox.Enabled = environmentBox.Items.Count > 1;
             if (notify) statusLabel.Text = environmentBox.Items.Count + " ambiente(s) detectado(s)";
         }
 
@@ -755,6 +814,7 @@ namespace SentinelaFirmwareStudio
             mainTabs.SelectedTab = compilationTab;
             SaveCurrentProject();
             logBox.Clear();
+            buildStopwatch.Restart();
             SetBusy(true);
             statusLabel.Text = cleanFirst ? "Limpando projeto..." : "Compilando...";
             ShowBuildProgress(cleanFirst ? "Limpando arquivos anteriores..." : "Compilando o firmware...");
@@ -818,6 +878,7 @@ namespace SentinelaFirmwareStudio
 
         void FinishBuild(bool success)
         {
+            buildStopwatch.Stop();
             Enabled = true;
             if (progressForm != null)
             {
@@ -830,8 +891,42 @@ namespace SentinelaFirmwareStudio
             statusLabel.ForeColor = success ? Color.ForestGreen : Color.Firebrick;
             statusLabel.Text = success ? "Compilação concluída com sucesso" : "Falha na compilação";
             RefreshArtifacts();
+            string firmware = GetMainFirmwarePath();
+            string sha = success && firmware != null && File.Exists(firmware) ? CalculateSha256(firmware) : "—";
+            string size = success && firmware != null && File.Exists(firmware) ? FormatFileSize(new FileInfo(firmware).Length) : "—";
+            var historyEntry = new BuildHistoryEntry
+            {
+                Project = SelectedProject == null ? nameBox.Text : SelectedProject.Name,
+                Date = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
+                Result = success ? "Sucesso" : "Falha",
+                Duration = buildStopwatch.Elapsed.ToString(@"mm\:ss"),
+                FirmwarePath = firmware ?? "",
+                FirmwareSize = size,
+                Sha256 = sha
+            };
+            if (settings.BuildHistory == null) settings.BuildHistory = new List<BuildHistoryEntry>();
+            settings.BuildHistory.Insert(0, historyEntry);
+            if (settings.BuildHistory.Count > 100) settings.BuildHistory.RemoveRange(100, settings.BuildHistory.Count - 100);
+            SaveSettings();
+            string summary = success
+                ? "Compilação concluída com sucesso.\n\nFirmware: " + (firmware == null ? "não localizado" : Path.GetFileName(firmware)) + "\nTamanho: " + size + "\nSHA-256: " + sha + "\nDuração: " + historyEntry.Duration + "\nData: " + historyEntry.Date
+                : "A compilação falhou.\n\nDuração: " + historyEntry.Duration + "\nConsulte o log para identificar o erro.";
+            MessageBox.Show(summary, success ? "Compilação concluída" : "Falha na compilação", MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             if (success) System.Media.SystemSounds.Asterisk.Play();
             else System.Media.SystemSounds.Hand.Play();
+        }
+
+        string GetMainFirmwarePath()
+        {
+            string candidate = Path.Combine(folderBox.Text, ".pio", "build", environmentBox.Text, "firmware.bin");
+            return File.Exists(candidate) ? candidate : null;
+        }
+
+        string FormatFileSize(long bytes)
+        {
+            if (bytes >= 1024 * 1024) return (bytes / 1024D / 1024D).ToString("0.00") + " MB";
+            if (bytes >= 1024) return (bytes / 1024D).ToString("0.0") + " KB";
+            return bytes + " bytes";
         }
 
         void SetBusy(bool busy)
@@ -859,14 +954,16 @@ namespace SentinelaFirmwareStudio
                 string[] extensions = { ".bin", ".elf", ".map", ".hex" };
                 var files = Directory.GetFiles(build, "*", SearchOption.AllDirectories)
                     .Where(f => extensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                    .OrderByDescending(File.GetLastWriteTime)
+                    .OrderByDescending(f => Path.GetFileName(f).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(File.GetLastWriteTime)
                     .ToArray();
                 foreach (string file in files)
                 {
                     string relative = file.StartsWith(build, StringComparison.OrdinalIgnoreCase)
                         ? file.Substring(build.TrimEnd(Path.DirectorySeparatorChar).Length).TrimStart(Path.DirectorySeparatorChar)
                         : Path.GetFileName(file);
-                    artifactBox.Items.Add(new ArtifactItem { DisplayName = relative, FullPath = file });
+                    bool mainFirmware = Path.GetFileName(file).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase);
+                    artifactBox.Items.Add(new ArtifactItem { DisplayName = mainFirmware ? "★ " + relative + " — Firmware principal" : relative, FullPath = file });
                 }
             }
             ArtifactItem previousItem = artifactBox.Items.Cast<ArtifactItem>().FirstOrDefault(item => string.Equals(item.FullPath, previous, StringComparison.OrdinalIgnoreCase));
@@ -938,6 +1035,102 @@ namespace SentinelaFirmwareStudio
                 File.Copy(file, dialog.FileName, true);
                 statusLabel.Text = "Arquivo salvo em " + dialog.FileName;
             }
+        }
+
+        void SaveFirmware()
+        {
+            string firmware = GetMainFirmwarePath();
+            if (firmware == null)
+            {
+                MessageBox.Show("firmware.bin não encontrado. Compile o projeto primeiro.", "Firmware indisponível", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            using (var dialog = new SaveFileDialog { FileName = "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                File.Copy(firmware, dialog.FileName, true);
+                statusLabel.Text = "Firmware salvo em " + dialog.FileName;
+            }
+        }
+
+        void CreateFirmwarePackage()
+        {
+            string firmware = GetMainFirmwarePath();
+            if (firmware == null)
+            {
+                MessageBox.Show("firmware.bin não encontrado. Compile o projeto primeiro.", "Firmware indisponível", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            string projectName = string.IsNullOrWhiteSpace(nameBox.Text) ? "sentinela" : Regex.Replace(nameBox.Text, @"[^A-Za-z0-9_-]", "-");
+            using (var dialog = new SaveFileDialog { FileName = projectName + "-firmware-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".zip", Filter = "Pacote ZIP (*.zip)|*.zip" })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                using (var fileStream = new FileStream(dialog.FileName, FileMode.Create))
+                using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create))
+                {
+                    var firmwareEntry = archive.CreateEntry("firmware.bin", CompressionLevel.Optimal);
+                    using (var input = File.OpenRead(firmware))
+                    using (var output = firmwareEntry.Open()) input.CopyTo(output);
+                    string sha = CalculateSha256(firmware);
+                    using (var writer = new StreamWriter(archive.CreateEntry("firmware.sha256").Open(), new UTF8Encoding(false))) writer.WriteLine(sha + "  firmware.bin");
+                    using (var writer = new StreamWriter(archive.CreateEntry("informacoes.txt").Open(), new UTF8Encoding(true)))
+                    {
+                        writer.WriteLine("Projeto: " + nameBox.Text);
+                        writer.WriteLine("Ambiente: " + environmentBox.Text);
+                        writer.WriteLine("Data: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
+                        writer.WriteLine("Tamanho: " + FormatFileSize(new FileInfo(firmware).Length));
+                        writer.WriteLine("SHA-256: " + sha);
+                        writer.WriteLine("Aplicativo: Sentinela Firmware Studio v" + AppVersion);
+                    }
+                }
+                statusLabel.Text = "Pacote ZIP criado em " + dialog.FileName;
+            }
+        }
+
+        void ShowBuildHistory()
+        {
+            var historyForm = new Form { Text = "Histórico de compilações", Width = 950, Height = 430, StartPosition = FormStartPosition.CenterParent, Icon = Icon };
+            var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AutoGenerateColumns = true, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells, DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList() };
+            grid.BackgroundColor = Color.White;
+            historyForm.Controls.Add(grid);
+            historyForm.ShowDialog(this);
+        }
+
+        void CheckForUpdates(bool interactive)
+        {
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072;
+                    string json;
+                    using (var client = new WebClient())
+                    {
+                        client.Headers[HttpRequestHeader.UserAgent] = "SentinelaFirmwareStudio/" + AppVersion;
+                        client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
+                        json = client.DownloadString(GitHubLatestReleaseApi);
+                    }
+                    Match match = Regex.Match(json, "\\\"tag_name\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"");
+                    if (!match.Success) throw new Exception("Resposta do GitHub sem versão.");
+                    string latestText = match.Groups[1].Value.TrimStart('v', 'V');
+                    Version latest;
+                    Version current;
+                    if (!Version.TryParse(latestText, out latest) || !Version.TryParse(AppVersion, out current)) throw new Exception("Versão inválida.");
+                    BeginInvoke(new Action(delegate
+                    {
+                        if (latest > current)
+                        {
+                            if (MessageBox.Show("Uma nova versão está disponível: v" + latest + "\n\nVersão instalada: v" + current + "\n\nDeseja abrir a página segura de releases do GitHub?", "Atualização disponível", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                                Process.Start(GitHubReleasesPage);
+                        }
+                        else if (interactive) MessageBox.Show("Você já está usando a versão mais recente (v" + AppVersion + ").", "Atualizações", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    if (interactive) BeginInvoke(new Action(delegate { MessageBox.Show("Não foi possível verificar atualizações agora.\n\n" + ex.Message, "Atualizações", MessageBoxButtons.OK, MessageBoxIcon.Warning); }));
+                }
+            });
         }
 
         void ExportScript(string extension)

@@ -10,9 +10,9 @@ Aplicativo Windows para cadastrar projetos PlatformIO, compilar firmware ESP32, 
 - Executa compilação normal ou `clean` seguido de compilação.
 - Mostra o log do PlatformIO em tempo real.
 - Localiza arquivos `.bin`, `.elf`, `.map` e `.hex` em `.pio\build`.
-- Copia o artefato para a área de transferência ou salva em outro local.
+- Copia o artefato para a área de transferência ou exporta `.bin`, `.elf`, `.map` e `.hex` por um seletor de formato.
 - Calcula e copia o SHA-256 do artefato selecionado.
-- Exporta um arquivo `.bat` para repetir a compilação fora do aplicativo.
+- Exporta scripts `.bat` e `.ps1` para repetir a compilação fora do aplicativo.
 
 ## Compilar o aplicativo
 

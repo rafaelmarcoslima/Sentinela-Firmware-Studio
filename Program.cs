@@ -55,6 +55,7 @@ namespace SentinelaFirmwareStudio
         TextBox platformIoBox = new TextBox();
         ComboBox environmentBox = new ComboBox();
         ComboBox artifactBox = new ComboBox();
+        ComboBox exportFormatBox = new ComboBox();
         TextBox logBox = new TextBox();
         Label statusLabel = new Label();
         Label hashLabel = new Label();
@@ -129,9 +130,21 @@ namespace SentinelaFirmwareStudio
             artifacts.Controls.Add(artifactBox);
             artifacts.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
             artifacts.Controls.Add(MakeButton("Copiar arquivo", delegate { CopyArtifactToClipboard(); }));
-            artifacts.Controls.Add(MakeButton("Salvar como...", delegate { SaveArtifactAs(); }));
             artifacts.Controls.Add(MakeButton("Copiar SHA-256", delegate { CopyHash(); }));
-            artifacts.Controls.Add(MakeButton("Exportar .BAT", delegate { ExportBat(); }));
+            artifacts.Controls.Add(new Label { Text = "Exportar:", AutoSize = true, Margin = new Padding(12, 9, 3, 3) });
+            exportFormatBox.Width = 175;
+            exportFormatBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            exportFormatBox.Items.AddRange(new object[] {
+                "Firmware (.bin)",
+                "Diagnóstico (.elf)",
+                "Mapa de memória (.map)",
+                "Intel HEX (.hex)",
+                "Script CMD (.bat)",
+                "Script PowerShell (.ps1)"
+            });
+            exportFormatBox.SelectedIndex = 0;
+            artifacts.Controls.Add(exportFormatBox);
+            artifacts.Controls.Add(MakeButton("Exportar...", delegate { ExportSelectedFormat(); }));
             right.Controls.Add(artifacts, 0, 5);
 
             logBox.Dock = DockStyle.Fill;
@@ -441,11 +454,35 @@ namespace SentinelaFirmwareStudio
             statusLabel.Text = "Arquivo copiado; cole-o no Explorador de Arquivos";
         }
 
-        void SaveArtifactAs()
+        string FindArtifactByExtension(string extension)
         {
-            string file = SelectedArtifact;
-            if (file == null || !File.Exists(file)) { MessageBox.Show("Selecione um artefato válido."); return; }
-            using (var dialog = new SaveFileDialog { FileName = Path.GetFileName(file), Filter = "Arquivo " + Path.GetExtension(file) + "|*" + Path.GetExtension(file) + "|Todos os arquivos|*.*" })
+            string selected = SelectedArtifact;
+            if (selected != null && Path.GetExtension(selected).Equals(extension, StringComparison.OrdinalIgnoreCase)) return selected;
+
+            return artifactBox.Items.Cast<string>()
+                .Where(f => Path.GetExtension(f).Equals(extension, StringComparison.OrdinalIgnoreCase))
+                .Where(f => f.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
+                .OrderByDescending(File.GetLastWriteTime)
+                .FirstOrDefault();
+        }
+
+        void ExportSelectedFormat()
+        {
+            if (exportFormatBox.SelectedIndex < 0) { MessageBox.Show("Selecione um formato de exportação."); return; }
+
+            if (exportFormatBox.SelectedIndex == 4) { ExportScript(".bat"); return; }
+            if (exportFormatBox.SelectedIndex == 5) { ExportScript(".ps1"); return; }
+
+            string[] extensions = { ".bin", ".elf", ".map", ".hex" };
+            string extension = extensions[exportFormatBox.SelectedIndex];
+            string file = FindArtifactByExtension(extension);
+            if (file == null || !File.Exists(file))
+            {
+                MessageBox.Show("Nenhum arquivo " + extension + " foi encontrado para o ambiente '" + environmentBox.Text + "'.\n\nCompile o projeto e tente novamente.", "Artefato não encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var dialog = new SaveFileDialog { FileName = Path.GetFileName(file), Filter = "Arquivo " + extension + "|*" + extension + "|Todos os arquivos|*.*" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(file, dialog.FileName, true);
@@ -453,15 +490,26 @@ namespace SentinelaFirmwareStudio
             }
         }
 
-        void ExportBat()
+        void ExportScript(string extension)
         {
             if (!ValidateBuildInputs()) return;
-            using (var dialog = new SaveFileDialog { FileName = "compilar-" + environmentBox.Text + ".bat", Filter = "Script em lote (*.bat)|*.bat" })
+            bool powershell = extension == ".ps1";
+            string filter = powershell ? "Script PowerShell (*.ps1)|*.ps1" : "Script em lote (*.bat)|*.bat";
+            using (var dialog = new SaveFileDialog { FileName = "compilar-" + environmentBox.Text + extension, Filter = filter })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                string contents = "@echo off\r\ncd /d \"" + folderBox.Text + "\"\r\n\"" + platformIoBox.Text + "\" run -e \"" + environmentBox.Text + "\"\r\nif errorlevel 1 pause & exit /b 1\r\necho.\r\necho Compilacao concluida.\r\npause\r\n";
-                File.WriteAllText(dialog.FileName, contents, Encoding.Default);
-                statusLabel.Text = "Script .BAT exportado";
+                string contents;
+                if (powershell)
+                {
+                    contents = "$ErrorActionPreference = 'Stop'\r\nSet-Location -LiteralPath '" + folderBox.Text.Replace("'", "''") + "'\r\n& '" + platformIoBox.Text.Replace("'", "''") + "' run -e '" + environmentBox.Text.Replace("'", "''") + "'\r\nif ($LASTEXITCODE -ne 0) { throw 'Falha na compilação.' }\r\nWrite-Host 'Compilação concluída.'\r\n";
+                    File.WriteAllText(dialog.FileName, contents, new UTF8Encoding(true));
+                }
+                else
+                {
+                    contents = "@echo off\r\ncd /d \"" + folderBox.Text + "\"\r\n\"" + platformIoBox.Text + "\" run -e \"" + environmentBox.Text + "\"\r\nif errorlevel 1 pause & exit /b 1\r\necho.\r\necho Compilacao concluida.\r\npause\r\n";
+                    File.WriteAllText(dialog.FileName, contents, Encoding.Default);
+                }
+                statusLabel.Text = "Script " + extension.ToUpperInvariant() + " exportado";
             }
         }
 

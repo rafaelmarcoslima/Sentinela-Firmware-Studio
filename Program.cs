@@ -215,13 +215,13 @@ namespace SentinelaFirmwareStudio
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
-            themeToolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Padding = new Padding(8, 4, 4, 4), Margin = new Padding(0, 0, 0, 8) };
+            themeToolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = false, Height = 52, MinimumSize = new Size(0, 52), MaximumSize = new Size(0, 52), Padding = new Padding(8, 5, 4, 5), Margin = new Padding(0, 0, 0, 8) };
             themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             themeToolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3), ForeColor = Color.White }, 0, 0);
-            var headerActions = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent };
+            var headerActions = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent, Anchor = AnchorStyles.Right };
             headerActions.Controls.Add(new Label { Text = "v" + AppVersion, AutoSize = true, ForeColor = Color.White, Margin = new Padding(3, 10, 8, 3) });
-            headerActions.Controls.Add(MakeButton("Verificar atualização", delegate { CheckForUpdates(true); }));
+            headerActions.Controls.Add(MakeButton("Atualizações", delegate { CheckForUpdates(true); }));
             headerActions.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }));
             themeToolbar.Controls.Add(headerActions, 1, 0);
             root.Controls.Add(themeToolbar, 0, 0);
@@ -401,7 +401,7 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Salvar firmware")) return "Salva diretamente o firmware.bin principal no local escolhido.";
             if (text.StartsWith("Criar pacote ZIP")) return "Cria um ZIP com firmware.bin, SHA-256 e informações da compilação.";
             if (text.StartsWith("Histórico")) return "Mostra as compilações anteriores, duração, resultado e SHA-256.";
-            if (text.StartsWith("Verificar atualização")) return "Consulta o GitHub para verificar se existe uma versão mais recente do aplicativo.";
+            if (text.StartsWith("Atualizações")) return "Consulta o GitHub para verificar se existe uma versão mais recente do aplicativo.";
             if (text.StartsWith("Salvar formato")) return "Localiza e salva o arquivo correspondente ao formato escolhido.";
             if (text.StartsWith("Exportar .BAT")) return "Cria um script CMD para compilar este projeto fora do aplicativo.";
             if (text.StartsWith("Exportar .PS1")) return "Cria um script PowerShell para compilar este projeto fora do aplicativo.";
@@ -427,7 +427,7 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Salvar firmware")) return "★";
             if (text.StartsWith("Criar pacote ZIP")) return "▤";
             if (text.StartsWith("Histórico")) return "◷";
-            if (text.StartsWith("Verificar atualização")) return "↥";
+            if (text.StartsWith("Atualizações")) return "↥";
             if (text.StartsWith("Salvar formato")) return "⇩";
             if (text.StartsWith("Exportar")) return "⇩";
             if (text.StartsWith("Configurações")) return "⚙";
@@ -1090,7 +1090,15 @@ namespace SentinelaFirmwareStudio
         void ShowBuildHistory()
         {
             var historyForm = new Form { Text = "Histórico de compilações", Width = 950, Height = 430, StartPosition = FormStartPosition.CenterParent, Icon = Icon };
-            var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AutoGenerateColumns = true, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells, DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList() };
+            var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AutoGenerateColumns = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false, RowHeadersVisible = false };
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Project", HeaderText = "Projeto", MinimumWidth = 180 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Date", HeaderText = "Data e hora", MinimumWidth = 130 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Result", HeaderText = "Resultado", MinimumWidth = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Duration", HeaderText = "Duração", MinimumWidth = 75 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwareSize", HeaderText = "Tamanho", MinimumWidth = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwarePath", HeaderText = "Caminho do firmware", MinimumWidth = 260 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Sha256", HeaderText = "SHA-256", MinimumWidth = 300 });
+            grid.DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList();
             grid.BackgroundColor = Color.White;
             historyForm.Controls.Add(grid);
             historyForm.ShowDialog(this);

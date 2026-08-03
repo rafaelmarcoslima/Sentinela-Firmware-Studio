@@ -154,6 +154,9 @@ namespace SentinelaFirmwareStudio
         FirmwareProject projectSelectedBeforeManualCreation;
         ToolTip buttonTooltips = new ToolTip { ShowAlways = true, InitialDelay = 350, ReshowDelay = 150, AutoPopDelay = 7000 };
         TableLayoutPanel themeToolbar;
+        TabControl mainTabs;
+        TabPage configurationTab;
+        TabPage compilationTab;
         Color currentAccent = Color.FromArgb(0, 120, 215);
         Process activeProcess;
         BuildProgressForm progressForm;
@@ -218,17 +221,28 @@ namespace SentinelaFirmwareStudio
             left.Controls.Add(projectButtons, 0, 2);
             root.Controls.Add(left, 0, 1);
 
-            var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 9, ColumnCount = 1 };
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            right.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(right, 1, 1);
+            var rightHost = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+            rightHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            rightHost.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.Controls.Add(rightHost, 1, 1);
+
+            mainTabs = new TabControl { Dock = DockStyle.Fill, Font = this.Font, Padding = new Point(16, 6) };
+            configurationTab = new TabPage("Configuração do projeto") { Padding = new Padding(10), BackColor = BackColor };
+            compilationTab = new TabPage("Compilação e arquivos") { Padding = new Padding(10), BackColor = BackColor };
+            mainTabs.TabPages.Add(configurationTab);
+            mainTabs.TabPages.Add(compilationTab);
+            rightHost.Controls.Add(mainTabs, 0, 0);
+
+            var configurationLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 7, ColumnCount = 1 };
+            for (int i = 0; i < 6; i++) configurationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            configurationLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            configurationTab.Controls.Add(configurationLayout);
+
+            var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+            compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            compilationLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            compilationTab.Controls.Add(compilationLayout);
 
             var configurationActions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 45, Padding = new Padding(0, 3, 0, 6), FlowDirection = FlowDirection.LeftToRight };
             configurationActions.Controls.Add(new Label { Text = "CONFIGURAÇÃO DO PROJETO", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 10, 16, 3) });
@@ -240,64 +254,80 @@ namespace SentinelaFirmwareStudio
             configurationActions.Controls.Add(editConfigButton);
             configurationActions.Controls.Add(saveConfigButton);
             configurationActions.Controls.Add(cancelEditButton);
-            right.Controls.Add(configurationActions, 0, 0);
+            configurationLayout.Controls.Add(configurationActions, 0, 0);
 
-            right.Controls.Add(FieldRow("Nome", nameBox, null), 0, 1);
+            configurationLayout.Controls.Add(FieldRow("Nome", nameBox, null), 0, 1);
             browseProjectButton = MakeButton("Procurar...", delegate { BrowseProjectFolder(); });
             browsePlatformIoButton = MakeButton("Procurar...", delegate { BrowsePlatformIo(); });
-            right.Controls.Add(FieldRow("Pasta do projeto", folderBox, browseProjectButton), 0, 2);
-            right.Controls.Add(FieldRow("PlatformIO", platformIoBox, browsePlatformIoButton), 0, 3);
+            configurationLayout.Controls.Add(FieldRow("Pasta do projeto", folderBox, browseProjectButton), 0, 2);
+            configurationLayout.Controls.Add(FieldRow("PlatformIO", platformIoBox, browsePlatformIoButton), 0, 3);
             environmentBox.DropDownStyle = ComboBoxStyle.DropDown;
             detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
-            right.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
+            configurationLayout.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
-            var artifactsGroup = new GroupBox { Text = "ARTEFATOS DA COMPILAÇÃO", Dock = DockStyle.Fill, Height = 132, Padding = new Padding(10, 7, 10, 7), Font = new Font(Font, FontStyle.Bold) };
-            var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 2 };
-            artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
+            var artifactsGroup = new GroupBox { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Fill, AutoSize = false, Height = 194, MinimumSize = new Size(0, 194), MaximumSize = new Size(0, 194), Padding = new Padding(10, 8, 10, 10), Font = new Font(Font, FontStyle.Bold) };
+            var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = false, RowCount = 4, ColumnCount = 3, Padding = new Padding(0, 0, 0, 4) };
+            artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 36));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            artifactsLayout.Controls.Add(new Label { Text = "Artefato:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) }, 0, 0);
+            artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            var artifactLabel = new Label { Text = "Arquivo gerado:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) };
+            artifactsLayout.Controls.Add(artifactLabel, 0, 0);
             artifactBox.DropDownStyle = ComboBoxStyle.DropDownList;
             artifactBox.Dock = DockStyle.Fill;
             artifactBox.Font = Font;
             artifactBox.SelectedIndexChanged += delegate { UpdateHash(); };
             artifactsLayout.Controls.Add(artifactBox, 1, 0);
+            artifactsLayout.Controls.Add(MakeHelpButton("Arquivo gerado", "Escolhe um dos arquivos produzidos pelo PlatformIO. Esta escolha é usada pelos botões Copiar arquivo e Copiar SHA-256; ela não muda o processo de compilação."), 2, 0);
+            buttonTooltips.SetToolTip(artifactLabel, "Arquivo já produzido pela última compilação do PlatformIO.");
+            buttonTooltips.SetToolTip(artifactBox, "Selecione o arquivo gerado que deseja copiar ou consultar o SHA-256.");
 
             var artifactButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 2, 0, 0), FlowDirection = FlowDirection.LeftToRight };
             artifactButtons.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
             artifactButtons.Controls.Add(MakeButton("Copiar arquivo", delegate { CopyArtifactToClipboard(); }));
             artifactButtons.Controls.Add(MakeButton("Copiar SHA-256", delegate { CopyHash(); }));
             artifactsLayout.Controls.Add(artifactButtons, 1, 1);
+            artifactsLayout.SetColumnSpan(artifactButtons, 2);
 
-            artifactsLayout.Controls.Add(new Label { Text = "Exportar:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) }, 0, 2);
-            var exportControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            exportFormatBox.Width = 175;
+            var formatLabel = new Label { Text = "Formato para salvar:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) };
+            artifactsLayout.Controls.Add(formatLabel, 0, 2);
+            var formatControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 1, 0, 1) };
+            exportFormatBox.Width = 190;
             exportFormatBox.DropDownStyle = ComboBoxStyle.DropDownList;
             exportFormatBox.Font = Font;
-            exportFormatBox.Items.AddRange(new object[] {
-                "Firmware (.bin)",
-                "Diagnóstico (.elf)",
-                "Mapa de memória (.map)",
-                "Intel HEX (.hex)",
-                "Script CMD (.bat)",
-                "Script PowerShell (.ps1)"
-            });
+            exportFormatBox.Items.AddRange(new object[] { "Firmware (.bin)", "Diagnóstico (.elf)", "Mapa de memória (.map)", "Intel HEX (.hex)" });
             exportFormatBox.SelectedIndex = 0;
-            exportControls.Controls.Add(exportFormatBox);
-            exportControls.Controls.Add(MakeButton("Exportar...", delegate { ExportSelectedFormat(); }));
-            artifactsLayout.Controls.Add(exportControls, 1, 2);
+            formatControls.Controls.Add(exportFormatBox);
+            formatControls.Controls.Add(MakeButton("Salvar formato...", delegate { SaveArtifactByFormat(); }));
+            artifactsLayout.Controls.Add(formatControls, 1, 2);
+            artifactsLayout.Controls.Add(MakeHelpButton("Formato para salvar", "Escolhe o tipo de arquivo que será salvo em outra pasta. Use Firmware (.bin) para enviar ou instalar o firmware no ESP32."), 2, 2);
+            buttonTooltips.SetToolTip(formatLabel, "Formato do arquivo que será localizado e salvo em outro local.");
+            buttonTooltips.SetToolTip(exportFormatBox, "Escolha .bin para firmware, .elf para diagnóstico, .map para memória ou .hex quando disponível.");
+
+            var scriptsLabel = new Label { Text = "Scripts:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) };
+            artifactsLayout.Controls.Add(scriptsLabel, 0, 3);
+            var scriptControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 1, 0, 5) };
+            scriptControls.Controls.Add(MakeButton("Exportar .BAT", delegate { ExportScript(".bat"); }));
+            scriptControls.Controls.Add(MakeButton("Exportar .PS1", delegate { ExportScript(".ps1"); }));
+            artifactsLayout.Controls.Add(scriptControls, 1, 3);
+            artifactsLayout.Controls.Add(MakeHelpButton("Scripts de compilação", "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware."), 2, 3);
+            buttonTooltips.SetToolTip(scriptsLabel, "Arquivos de comando para repetir a compilação fora do aplicativo.");
             artifactsGroup.Controls.Add(artifactsLayout);
-            right.Controls.Add(artifactsGroup, 0, 5);
+            compilationLayout.Controls.Add(artifactsGroup, 0, 0);
 
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(0, 5, 0, 3) };
             buildButton = MakeButton("Compilar", delegate { StartBuild(false); });
             cleanBuildButton = MakeButton("Limpar e compilar", delegate { StartBuild(true); });
             actions.Controls.Add(buildButton);
             actions.Controls.Add(cleanBuildButton);
-            actions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
-            right.Controls.Add(actions, 0, 6);
+            compilationLayout.Controls.Add(actions, 0, 1);
+
+            var configurationFolderActions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(112, 5, 0, 3) };
+            configurationFolderActions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
+            configurationLayout.Controls.Add(configurationFolderActions, 0, 5);
 
             logBox.Dock = DockStyle.Fill;
             logBox.Multiline = true;
@@ -307,7 +337,7 @@ namespace SentinelaFirmwareStudio
             logBox.Font = new Font("Consolas", 9F);
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
-            right.Controls.Add(logBox, 0, 7);
+            compilationLayout.Controls.Add(logBox, 0, 2);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
             statusLabel.Text = "Pronto";
@@ -317,16 +347,24 @@ namespace SentinelaFirmwareStudio
             hashLabel.AutoSize = true;
             footer.Controls.Add(statusLabel, 0, 0);
             footer.Controls.Add(hashLabel, 0, 1);
-            right.Controls.Add(footer, 0, 8);
+            rightHost.Controls.Add(footer, 0, 1);
             SetConfigurationEditMode(false);
         }
 
         Button MakeButton(string text, EventHandler click)
         {
-            var button = new Button { Text = text, AutoSize = true, Height = 31, Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            var button = new Button { Text = text, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
             button.Image = CreateButtonIcon(GetButtonGlyph(text));
             buttonTooltips.SetToolTip(button, GetButtonTooltip(text));
             button.Click += click;
+            return button;
+        }
+
+        Button MakeHelpButton(string title, string explanation)
+        {
+            var button = new Button { Text = "?", Width = 28, Height = 28, MinimumSize = new Size(28, 28), Margin = new Padding(3), Font = new Font(this.Font, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Tag = "help" };
+            buttonTooltips.SetToolTip(button, "Clique para entender: " + title);
+            button.Click += delegate { MessageBox.Show(explanation, title, MessageBoxButtons.OK, MessageBoxIcon.Information); };
             return button;
         }
 
@@ -346,7 +384,10 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Atualizar")) return "Procura novamente os artefatos gerados na pasta .pio\\build do projeto.";
             if (text.StartsWith("Copiar arquivo")) return "Copia o artefato selecionado para a área de transferência do Windows.";
             if (text.StartsWith("Copiar SHA-256")) return "Calcula e copia o código SHA-256 do artefato selecionado.";
-            if (text.StartsWith("Exportar")) return "Salva no local escolhido o formato de firmware ou script selecionado.";
+            if (text.StartsWith("Salvar como")) return "Salva uma cópia do arquivo gerado selecionado no local escolhido.";
+            if (text.StartsWith("Salvar formato")) return "Localiza e salva o arquivo correspondente ao formato escolhido.";
+            if (text.StartsWith("Exportar .BAT")) return "Cria um script CMD para compilar este projeto fora do aplicativo.";
+            if (text.StartsWith("Exportar .PS1")) return "Cria um script PowerShell para compilar este projeto fora do aplicativo.";
             if (text.StartsWith("Configurações")) return "Abre as configurações visuais e permite escolher a cor do tema.";
             return "Executa esta ação.";
         }
@@ -365,6 +406,8 @@ namespace SentinelaFirmwareStudio
             if (text.StartsWith("Detectar")) return "⌕";
             if (text.StartsWith("Atualizar")) return "↻";
             if (text.StartsWith("Copiar")) return "⧉";
+            if (text.StartsWith("Salvar como")) return "⇩";
+            if (text.StartsWith("Salvar formato")) return "⇩";
             if (text.StartsWith("Exportar")) return "⇩";
             if (text.StartsWith("Configurações")) return "⚙";
             return "•";
@@ -404,6 +447,8 @@ namespace SentinelaFirmwareStudio
             if (!themes.TryGetValue(settings.ThemeName ?? "Azul", out accent)) accent = themes["Azul"];
             currentAccent = accent;
             BackColor = BlendWithWhite(accent, 0.94F);
+            if (configurationTab != null) configurationTab.BackColor = BackColor;
+            if (compilationTab != null) compilationTab.BackColor = BackColor;
             ApplyThemeToControls(this, accent);
             if (themeToolbar != null)
             {
@@ -432,7 +477,7 @@ namespace SentinelaFirmwareStudio
                     button.FlatAppearance.BorderColor = accent;
                     button.BackColor = accent;
                     button.ForeColor = Color.White;
-                    button.Image = CreateButtonIcon(GetButtonGlyph(button.Text), Color.White);
+                    button.Image = string.Equals(button.Tag as string, "help", StringComparison.Ordinal) ? null : CreateButtonIcon(GetButtonGlyph(button.Text), Color.White);
                     button.FlatAppearance.MouseOverBackColor = BlendWithWhite(accent, 0.18F);
                     button.FlatAppearance.MouseDownBackColor = BlendWithWhite(accent, 0.32F);
                 }
@@ -550,6 +595,7 @@ namespace SentinelaFirmwareStudio
         void BeginConfigurationEdit()
         {
             if (SelectedProject == null) return;
+            mainTabs.SelectedTab = configurationTab;
             creatingManualProject = false;
             SetConfigurationEditMode(true);
             nameBox.Focus();
@@ -559,6 +605,7 @@ namespace SentinelaFirmwareStudio
 
         void BeginManualProjectCreation()
         {
+            mainTabs.SelectedTab = configurationTab;
             projectSelectedBeforeManualCreation = SelectedProject;
             projects.SelectedIndex = -1;
             creatingManualProject = true;
@@ -641,6 +688,7 @@ namespace SentinelaFirmwareStudio
                 SaveSettings();
                 RefreshProjectList();
                 projects.SelectedItem = project;
+                mainTabs.SelectedTab = configurationTab;
             }
         }
 
@@ -720,6 +768,7 @@ namespace SentinelaFirmwareStudio
         {
             if (activeProcess != null) return;
             if (!ValidateBuildInputs()) return;
+            mainTabs.SelectedTab = compilationTab;
             SaveCurrentProject();
             logBox.Clear();
             SetBusy(true);
@@ -894,40 +943,34 @@ namespace SentinelaFirmwareStudio
             statusLabel.Text = "Arquivo copiado; cole-o no Explorador de Arquivos";
         }
 
-        string FindArtifactByExtension(string extension)
+        void SaveArtifactByFormat()
         {
-            string selected = SelectedArtifact;
-            if (selected != null && Path.GetExtension(selected).Equals(extension, StringComparison.OrdinalIgnoreCase)) return selected;
-
-            ArtifactItem found = artifactBox.Items.Cast<ArtifactItem>()
-                .Where(item => Path.GetExtension(item.FullPath).Equals(extension, StringComparison.OrdinalIgnoreCase))
-                .Where(item => item.FullPath.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
-                .OrderByDescending(item => File.GetLastWriteTime(item.FullPath))
-                .FirstOrDefault();
-            return found == null ? null : found.FullPath;
-        }
-
-        void ExportSelectedFormat()
-        {
-            if (exportFormatBox.SelectedIndex < 0) { MessageBox.Show("Selecione um formato de exportação."); return; }
-
-            if (exportFormatBox.SelectedIndex == 4) { ExportScript(".bat"); return; }
-            if (exportFormatBox.SelectedIndex == 5) { ExportScript(".ps1"); return; }
-
+            if (exportFormatBox.SelectedIndex < 0) { MessageBox.Show("Selecione um formato para salvar."); return; }
             string[] extensions = { ".bin", ".elf", ".map", ".hex" };
             string extension = extensions[exportFormatBox.SelectedIndex];
-            string file = FindArtifactByExtension(extension);
+            string selected = SelectedArtifact;
+            var candidates = artifactBox.Items.Cast<ArtifactItem>()
+                .Where(item => Path.GetExtension(item.FullPath).Equals(extension, StringComparison.OrdinalIgnoreCase))
+                .Where(item => item.FullPath.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+            ArtifactItem match = null;
+            if (extension == ".bin")
+                match = candidates.FirstOrDefault(item => Path.GetFileName(item.FullPath).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase));
+            if (match == null && selected != null)
+                match = candidates.FirstOrDefault(item => string.Equals(item.FullPath, selected, StringComparison.OrdinalIgnoreCase));
+            if (match == null)
+                match = candidates.OrderByDescending(item => File.GetLastWriteTime(item.FullPath)).FirstOrDefault();
+            string file = match == null ? null : match.FullPath;
             if (file == null || !File.Exists(file))
             {
-                MessageBox.Show("Nenhum arquivo " + extension + " foi encontrado para o ambiente '" + environmentBox.Text + "'.\n\nCompile o projeto e tente novamente.", "Artefato não encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Nenhum arquivo " + extension + " foi encontrado para o ambiente '" + environmentBox.Text + "'.\n\nCompile o projeto e tente novamente.", "Formato não encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-
             using (var dialog = new SaveFileDialog { FileName = Path.GetFileName(file), Filter = "Arquivo " + extension + "|*" + extension + "|Todos os arquivos|*.*" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(file, dialog.FileName, true);
-                statusLabel.Text = "Artefato salvo em " + dialog.FileName;
+                statusLabel.Text = "Arquivo salvo em " + dialog.FileName;
             }
         }
 

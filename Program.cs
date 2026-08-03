@@ -293,7 +293,7 @@ namespace SentinelaFirmwareStudio
 
     public class MainForm : Form
     {
-        const string AppVersion = "1.1.2";
+        const string AppVersion = "1.1.3";
         const string UpdateAssetName = "SentinelaFirmwareStudio.exe";
         const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
         const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";

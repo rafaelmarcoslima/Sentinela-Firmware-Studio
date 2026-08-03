@@ -134,7 +134,6 @@ namespace SentinelaFirmwareStudio
         TextBox platformIoBox = new TextBox();
         ComboBox environmentBox = new ComboBox();
         ComboBox artifactBox = new ComboBox();
-        ComboBox exportFormatBox = new ComboBox();
         TextBox logBox = new TextBox();
         Label statusLabel = new Label();
         Label hashLabel = new Label();
@@ -265,12 +264,11 @@ namespace SentinelaFirmwareStudio
             detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
             configurationLayout.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
-            var artifactsGroup = new GroupBox { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Fill, AutoSize = false, Height = 194, MinimumSize = new Size(0, 194), MaximumSize = new Size(0, 194), Padding = new Padding(10, 8, 10, 10), Font = new Font(Font, FontStyle.Bold) };
-            var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = false, RowCount = 4, ColumnCount = 3, Padding = new Padding(0, 0, 0, 4) };
+            var artifactsGroup = new GroupBox { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Fill, AutoSize = false, Height = 165, MinimumSize = new Size(0, 165), MaximumSize = new Size(0, 165), Padding = new Padding(10, 8, 10, 12), Font = new Font(Font, FontStyle.Bold) };
+            var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = false, RowCount = 3, ColumnCount = 3, Padding = new Padding(0, 0, 0, 6) };
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 36));
-            artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -288,32 +286,18 @@ namespace SentinelaFirmwareStudio
             var artifactButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 2, 0, 0), FlowDirection = FlowDirection.LeftToRight };
             artifactButtons.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
             artifactButtons.Controls.Add(MakeButton("Copiar arquivo", delegate { CopyArtifactToClipboard(); }));
+            artifactButtons.Controls.Add(MakeButton("Salvar como...", delegate { SaveSelectedArtifactAs(); }));
             artifactButtons.Controls.Add(MakeButton("Copiar SHA-256", delegate { CopyHash(); }));
             artifactsLayout.Controls.Add(artifactButtons, 1, 1);
             artifactsLayout.SetColumnSpan(artifactButtons, 2);
 
-            var formatLabel = new Label { Text = "Formato para salvar:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) };
-            artifactsLayout.Controls.Add(formatLabel, 0, 2);
-            var formatControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 1, 0, 1) };
-            exportFormatBox.Width = 190;
-            exportFormatBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            exportFormatBox.Font = Font;
-            exportFormatBox.Items.AddRange(new object[] { "Firmware (.bin)", "Diagnóstico (.elf)", "Mapa de memória (.map)", "Intel HEX (.hex)" });
-            exportFormatBox.SelectedIndex = 0;
-            formatControls.Controls.Add(exportFormatBox);
-            formatControls.Controls.Add(MakeButton("Salvar formato...", delegate { SaveArtifactByFormat(); }));
-            artifactsLayout.Controls.Add(formatControls, 1, 2);
-            artifactsLayout.Controls.Add(MakeHelpButton("Formato para salvar", "Escolhe o tipo de arquivo que será salvo em outra pasta. Use Firmware (.bin) para enviar ou instalar o firmware no ESP32."), 2, 2);
-            buttonTooltips.SetToolTip(formatLabel, "Formato do arquivo que será localizado e salvo em outro local.");
-            buttonTooltips.SetToolTip(exportFormatBox, "Escolha .bin para firmware, .elf para diagnóstico, .map para memória ou .hex quando disponível.");
-
             var scriptsLabel = new Label { Text = "Scripts:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) };
-            artifactsLayout.Controls.Add(scriptsLabel, 0, 3);
-            var scriptControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 1, 0, 5) };
+            artifactsLayout.Controls.Add(scriptsLabel, 0, 2);
+            var scriptControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 2, 0, 7) };
             scriptControls.Controls.Add(MakeButton("Exportar .BAT", delegate { ExportScript(".bat"); }));
             scriptControls.Controls.Add(MakeButton("Exportar .PS1", delegate { ExportScript(".ps1"); }));
-            artifactsLayout.Controls.Add(scriptControls, 1, 3);
-            artifactsLayout.Controls.Add(MakeHelpButton("Scripts de compilação", "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware."), 2, 3);
+            artifactsLayout.Controls.Add(scriptControls, 1, 2);
+            artifactsLayout.Controls.Add(MakeHelpButton("Scripts de compilação", "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware."), 2, 2);
             buttonTooltips.SetToolTip(scriptsLabel, "Arquivos de comando para repetir a compilação fora do aplicativo.");
             artifactsGroup.Controls.Add(artifactsLayout);
             compilationLayout.Controls.Add(artifactsGroup, 0, 0);
@@ -943,29 +927,11 @@ namespace SentinelaFirmwareStudio
             statusLabel.Text = "Arquivo copiado; cole-o no Explorador de Arquivos";
         }
 
-        void SaveArtifactByFormat()
+        void SaveSelectedArtifactAs()
         {
-            if (exportFormatBox.SelectedIndex < 0) { MessageBox.Show("Selecione um formato para salvar."); return; }
-            string[] extensions = { ".bin", ".elf", ".map", ".hex" };
-            string extension = extensions[exportFormatBox.SelectedIndex];
-            string selected = SelectedArtifact;
-            var candidates = artifactBox.Items.Cast<ArtifactItem>()
-                .Where(item => Path.GetExtension(item.FullPath).Equals(extension, StringComparison.OrdinalIgnoreCase))
-                .Where(item => item.FullPath.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
-            ArtifactItem match = null;
-            if (extension == ".bin")
-                match = candidates.FirstOrDefault(item => Path.GetFileName(item.FullPath).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase));
-            if (match == null && selected != null)
-                match = candidates.FirstOrDefault(item => string.Equals(item.FullPath, selected, StringComparison.OrdinalIgnoreCase));
-            if (match == null)
-                match = candidates.OrderByDescending(item => File.GetLastWriteTime(item.FullPath)).FirstOrDefault();
-            string file = match == null ? null : match.FullPath;
-            if (file == null || !File.Exists(file))
-            {
-                MessageBox.Show("Nenhum arquivo " + extension + " foi encontrado para o ambiente '" + environmentBox.Text + "'.\n\nCompile o projeto e tente novamente.", "Formato não encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            string file = SelectedArtifact;
+            if (file == null || !File.Exists(file)) { MessageBox.Show("Selecione um arquivo gerado válido."); return; }
+            string extension = Path.GetExtension(file);
             using (var dialog = new SaveFileDialog { FileName = Path.GetFileName(file), Filter = "Arquivo " + extension + "|*" + extension + "|Todos os arquivos|*.*" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;

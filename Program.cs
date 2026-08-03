@@ -7,6 +7,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
@@ -132,6 +133,8 @@ namespace SentinelaFirmwareStudio
         Label hashLabel = new Label();
         Button buildButton = new Button();
         Button cleanBuildButton = new Button();
+        TableLayoutPanel themeToolbar;
+        Color currentAccent = Color.FromArgb(0, 120, 215);
         Process activeProcess;
         BuildProgressForm progressForm;
         readonly Dictionary<string, Color> themes = new Dictionary<string, Color>
@@ -167,13 +170,13 @@ namespace SentinelaFirmwareStudio
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
-            var toolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Margin = new Padding(0, 0, 0, 8) };
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            toolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) }, 0, 0);
-            toolbar.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }), 1, 0);
-            root.Controls.Add(toolbar, 0, 0);
-            root.SetColumnSpan(toolbar, 2);
+            themeToolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = true, Padding = new Padding(8, 4, 4, 4), Margin = new Padding(0, 0, 0, 8) };
+            themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            themeToolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3), ForeColor = Color.White }, 0, 0);
+            themeToolbar.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }), 1, 0);
+            root.Controls.Add(themeToolbar, 0, 0);
+            root.SetColumnSpan(themeToolbar, 2);
 
             var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, Padding = new Padding(0, 0, 10, 0) };
             left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -181,6 +184,9 @@ namespace SentinelaFirmwareStudio
             left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             left.Controls.Add(new Label { Text = "PROJETOS", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 5, 3, 8) }, 0, 0);
             projects.Dock = DockStyle.Fill;
+            projects.DrawMode = DrawMode.OwnerDrawFixed;
+            projects.ItemHeight = 22;
+            projects.DrawItem += DrawProjectItem;
             projects.SelectedIndexChanged += delegate { DisplaySelectedProject(); };
             left.Controls.Add(projects, 0, 1);
             var projectButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
@@ -285,12 +291,14 @@ namespace SentinelaFirmwareStudio
             return "•";
         }
 
-        Bitmap CreateButtonIcon(string glyph)
+        Bitmap CreateButtonIcon(string glyph) { return CreateButtonIcon(glyph, Color.FromArgb(55, 55, 55)); }
+
+        Bitmap CreateButtonIcon(string glyph, Color color)
         {
             var bitmap = new Bitmap(18, 18);
             using (var graphics = Graphics.FromImage(bitmap))
             using (var font = new Font("Segoe UI Symbol", 10F, FontStyle.Bold, GraphicsUnit.Point))
-            using (var brush = new SolidBrush(Color.FromArgb(55, 55, 55)))
+            using (var brush = new SolidBrush(color))
             {
                 graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -315,11 +323,23 @@ namespace SentinelaFirmwareStudio
         {
             Color accent;
             if (!themes.TryGetValue(settings.ThemeName ?? "Azul", out accent)) accent = themes["Azul"];
-            BackColor = Color.FromArgb(246, 247, 249);
+            currentAccent = accent;
+            BackColor = BlendWithWhite(accent, 0.94F);
             ApplyThemeToControls(this, accent);
+            if (themeToolbar != null)
+            {
+                themeToolbar.BackColor = accent;
+                foreach (Control control in themeToolbar.Controls)
+                {
+                    var label = control as Label;
+                    if (label != null) label.ForeColor = Color.White;
+                }
+            }
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
             statusLabel.ForeColor = accent;
+            projects.Invalidate();
+            ApplyWindowsTitleBar(accent);
         }
 
         void ApplyThemeToControls(Control parent, Color accent)
@@ -331,11 +351,50 @@ namespace SentinelaFirmwareStudio
                 {
                     button.FlatStyle = FlatStyle.Flat;
                     button.FlatAppearance.BorderColor = accent;
-                    button.FlatAppearance.MouseOverBackColor = Color.FromArgb(232, 238, 245);
-                    button.FlatAppearance.MouseDownBackColor = Color.FromArgb(218, 228, 238);
+                    button.BackColor = accent;
+                    button.ForeColor = Color.White;
+                    button.Image = CreateButtonIcon(GetButtonGlyph(button.Text), Color.White);
+                    button.FlatAppearance.MouseOverBackColor = BlendWithWhite(accent, 0.18F);
+                    button.FlatAppearance.MouseDownBackColor = BlendWithWhite(accent, 0.32F);
                 }
                 ApplyThemeToControls(control, accent);
             }
+        }
+
+        Color BlendWithWhite(Color color, float whiteAmount)
+        {
+            int red = (int)(color.R * (1F - whiteAmount) + 255F * whiteAmount);
+            int green = (int)(color.G * (1F - whiteAmount) + 255F * whiteAmount);
+            int blue = (int)(color.B * (1F - whiteAmount) + 255F * whiteAmount);
+            return Color.FromArgb(red, green, blue);
+        }
+
+        void DrawProjectItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0) return;
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color background = selected ? currentAccent : projects.BackColor;
+            Color foreground = selected ? Color.White : projects.ForeColor;
+            using (var backgroundBrush = new SolidBrush(background)) e.Graphics.FillRectangle(backgroundBrush, e.Bounds);
+            var textBounds = new Rectangle(e.Bounds.Left + 4, e.Bounds.Top, Math.Max(0, e.Bounds.Width - 8), e.Bounds.Height);
+            TextRenderer.DrawText(e.Graphics, projects.Items[e.Index].ToString(), projects.Font, textBounds, foreground,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+            e.DrawFocusRectangle();
+        }
+
+        [DllImport("dwmapi.dll")]
+        static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+        void ApplyWindowsTitleBar(Color accent)
+        {
+            try
+            {
+                int captionColor = accent.R | (accent.G << 8) | (accent.B << 16);
+                int textColor = 255 | (255 << 8) | (255 << 16);
+                DwmSetWindowAttribute(Handle, 35, ref captionColor, sizeof(int));
+                DwmSetWindowAttribute(Handle, 36, ref textColor, sizeof(int));
+            }
+            catch { }
         }
 
         Control FieldRow(string label, Control input, Button action)

@@ -133,6 +133,7 @@ namespace SentinelaFirmwareStudio
         Label hashLabel = new Label();
         Button buildButton = new Button();
         Button cleanBuildButton = new Button();
+        ToolTip buttonTooltips = new ToolTip { ShowAlways = true, InitialDelay = 350, ReshowDelay = 150, AutoPopDelay = 7000 };
         TableLayoutPanel themeToolbar;
         Color currentAccent = Color.FromArgb(0, 120, 215);
         Process activeProcess;
@@ -151,6 +152,7 @@ namespace SentinelaFirmwareStudio
         public MainForm()
         {
             Text = "Sentinela Firmware Studio";
+            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             Width = 1050;
             Height = 700;
             MinimumSize = new Size(900, 600);
@@ -271,8 +273,27 @@ namespace SentinelaFirmwareStudio
         {
             var button = new Button { Text = text, AutoSize = true, Height = 31, Margin = new Padding(3), FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
             button.Image = CreateButtonIcon(GetButtonGlyph(text));
+            buttonTooltips.SetToolTip(button, GetButtonTooltip(text));
             button.Click += click;
             return button;
+        }
+
+        string GetButtonTooltip(string text)
+        {
+            if (text.StartsWith("Adicionar")) return "Adiciona à lista uma pasta existente que contém um projeto PlatformIO. Nenhum arquivo é copiado.";
+            if (text.StartsWith("Remover")) return "Remove apenas o caminho salvo da lista. A pasta e os arquivos do projeto não são excluídos.";
+            if (text.StartsWith("Compilar")) return "Compila o projeto selecionado usando o ambiente PlatformIO informado.";
+            if (text.StartsWith("Limpar")) return "Apaga os arquivos temporários da compilação anterior e compila o projeto novamente.";
+            if (text.StartsWith("Salvar alterações")) return "Salva o nome, os caminhos e o ambiente configurados para este projeto.";
+            if (text.StartsWith("Abrir pasta")) return "Abre a pasta do projeto selecionado no Explorador de Arquivos.";
+            if (text.StartsWith("Procurar")) return "Abre uma janela para localizar a pasta ou o executável solicitado.";
+            if (text.StartsWith("Detectar")) return "Lê o platformio.ini e lista automaticamente os ambientes disponíveis.";
+            if (text.StartsWith("Atualizar")) return "Procura novamente os artefatos gerados na pasta .pio\\build do projeto.";
+            if (text.StartsWith("Copiar arquivo")) return "Copia o artefato selecionado para a área de transferência do Windows.";
+            if (text.StartsWith("Copiar SHA-256")) return "Calcula e copia o código SHA-256 do artefato selecionado.";
+            if (text.StartsWith("Exportar")) return "Salva no local escolhido o formato de firmware ou script selecionado.";
+            if (text.StartsWith("Configurações")) return "Abre as configurações visuais e permite escolher a cor do tema.";
+            return "Executa esta ação.";
         }
 
         string GetButtonGlyph(string text)

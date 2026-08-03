@@ -4,6 +4,7 @@ $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sourceFile = Join-Path $projectRoot 'Program.cs'
 $outputFolder = Join-Path $projectRoot 'dist'
 $outputFile = Join-Path $outputFolder 'SentinelaFirmwareStudio.exe'
+$iconFile = Join-Path $projectRoot 'assets\app.ico'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path -LiteralPath $compiler)) {
@@ -12,7 +13,11 @@ if (-not (Test-Path -LiteralPath $compiler)) {
 
 New-Item -ItemType Directory -Force -Path $outputFolder | Out-Null
 
-& $compiler /nologo /target:winexe /optimize+ "/out:$outputFile" `
+if (-not (Test-Path -LiteralPath $iconFile)) {
+    throw "Ícone do aplicativo não encontrado: $iconFile"
+}
+
+& $compiler /nologo /target:winexe /optimize+ "/out:$outputFile" "/win32icon:$iconFile" `
     /reference:System.dll `
     /reference:System.Core.dll `
     /reference:System.Drawing.dll `

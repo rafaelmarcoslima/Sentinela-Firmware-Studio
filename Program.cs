@@ -25,6 +25,13 @@ namespace SentinelaFirmwareStudio
         public override string ToString() { return Name; }
     }
 
+    public class ArtifactItem
+    {
+        public string DisplayName { get; set; }
+        public string FullPath { get; set; }
+        public override string ToString() { return DisplayName; }
+    }
+
     [Serializable]
     public class AppSettings
     {
@@ -244,26 +251,31 @@ namespace SentinelaFirmwareStudio
             detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
             right.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
-            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(0, 5, 0, 3) };
-            buildButton = MakeButton("Compilar", delegate { StartBuild(false); });
-            cleanBuildButton = MakeButton("Limpar e compilar", delegate { StartBuild(true); });
-            actions.Controls.Add(buildButton);
-            actions.Controls.Add(cleanBuildButton);
-            actions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
-            right.Controls.Add(actions, 0, 5);
-
-            var artifacts = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 68, AutoScroll = true, Padding = new Padding(0, 3, 0, 3) };
-            artifacts.Controls.Add(new Label { Text = "Artefato:", AutoSize = true, Margin = new Padding(3, 9, 3, 3) });
-            artifactBox.Width = 290;
+            var artifactsGroup = new GroupBox { Text = "ARTEFATOS DA COMPILAÇÃO", Dock = DockStyle.Fill, Height = 132, Padding = new Padding(10, 7, 10, 7), Font = new Font(Font, FontStyle.Bold) };
+            var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 2 };
+            artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 70));
+            artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            artifactsLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            artifactsLayout.Controls.Add(new Label { Text = "Artefato:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) }, 0, 0);
             artifactBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            artifactBox.Dock = DockStyle.Fill;
+            artifactBox.Font = Font;
             artifactBox.SelectedIndexChanged += delegate { UpdateHash(); };
-            artifacts.Controls.Add(artifactBox);
-            artifacts.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
-            artifacts.Controls.Add(MakeButton("Copiar arquivo", delegate { CopyArtifactToClipboard(); }));
-            artifacts.Controls.Add(MakeButton("Copiar SHA-256", delegate { CopyHash(); }));
-            artifacts.Controls.Add(new Label { Text = "Exportar:", AutoSize = true, Margin = new Padding(12, 9, 3, 3) });
+            artifactsLayout.Controls.Add(artifactBox, 1, 0);
+
+            var artifactButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 2, 0, 0), FlowDirection = FlowDirection.LeftToRight };
+            artifactButtons.Controls.Add(MakeButton("Atualizar", delegate { RefreshArtifacts(); }));
+            artifactButtons.Controls.Add(MakeButton("Copiar arquivo", delegate { CopyArtifactToClipboard(); }));
+            artifactButtons.Controls.Add(MakeButton("Copiar SHA-256", delegate { CopyHash(); }));
+            artifactsLayout.Controls.Add(artifactButtons, 1, 1);
+
+            artifactsLayout.Controls.Add(new Label { Text = "Exportar:", AutoSize = true, Anchor = AnchorStyles.Left, Font = Font, Margin = new Padding(3, 8, 3, 3) }, 0, 2);
+            var exportControls = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
             exportFormatBox.Width = 175;
             exportFormatBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            exportFormatBox.Font = Font;
             exportFormatBox.Items.AddRange(new object[] {
                 "Firmware (.bin)",
                 "Diagnóstico (.elf)",
@@ -273,9 +285,19 @@ namespace SentinelaFirmwareStudio
                 "Script PowerShell (.ps1)"
             });
             exportFormatBox.SelectedIndex = 0;
-            artifacts.Controls.Add(exportFormatBox);
-            artifacts.Controls.Add(MakeButton("Exportar...", delegate { ExportSelectedFormat(); }));
-            right.Controls.Add(artifacts, 0, 6);
+            exportControls.Controls.Add(exportFormatBox);
+            exportControls.Controls.Add(MakeButton("Exportar...", delegate { ExportSelectedFormat(); }));
+            artifactsLayout.Controls.Add(exportControls, 1, 2);
+            artifactsGroup.Controls.Add(artifactsLayout);
+            right.Controls.Add(artifactsGroup, 0, 5);
+
+            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(0, 5, 0, 3) };
+            buildButton = MakeButton("Compilar", delegate { StartBuild(false); });
+            cleanBuildButton = MakeButton("Limpar e compilar", delegate { StartBuild(true); });
+            actions.Controls.Add(buildButton);
+            actions.Controls.Add(cleanBuildButton);
+            actions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
+            right.Controls.Add(actions, 0, 6);
 
             logBox.Dock = DockStyle.Fill;
             logBox.Multiline = true;
@@ -301,7 +323,7 @@ namespace SentinelaFirmwareStudio
 
         Button MakeButton(string text, EventHandler click)
         {
-            var button = new Button { Text = text, AutoSize = true, Height = 31, Margin = new Padding(3), FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            var button = new Button { Text = text, AutoSize = true, Height = 31, Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
             button.Image = CreateButtonIcon(GetButtonGlyph(text));
             buttonTooltips.SetToolTip(button, GetButtonTooltip(text));
             button.Click += click;
@@ -796,7 +818,7 @@ namespace SentinelaFirmwareStudio
 
         void RefreshArtifacts()
         {
-            string previous = artifactBox.SelectedItem as string;
+            string previous = SelectedArtifact;
             artifactBox.Items.Clear();
             string build = Path.Combine(folderBox.Text, ".pio", "build");
             if (Directory.Exists(build))
@@ -806,21 +828,39 @@ namespace SentinelaFirmwareStudio
                     .Where(f => extensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
                     .OrderByDescending(File.GetLastWriteTime)
                     .ToArray();
-                foreach (string file in files) artifactBox.Items.Add(file);
+                foreach (string file in files)
+                {
+                    string relative = file.StartsWith(build, StringComparison.OrdinalIgnoreCase)
+                        ? file.Substring(build.TrimEnd(Path.DirectorySeparatorChar).Length).TrimStart(Path.DirectorySeparatorChar)
+                        : Path.GetFileName(file);
+                    artifactBox.Items.Add(new ArtifactItem { DisplayName = relative, FullPath = file });
+                }
             }
-            if (previous != null && artifactBox.Items.Contains(previous)) artifactBox.SelectedItem = previous;
+            ArtifactItem previousItem = artifactBox.Items.Cast<ArtifactItem>().FirstOrDefault(item => string.Equals(item.FullPath, previous, StringComparison.OrdinalIgnoreCase));
+            if (previousItem != null) artifactBox.SelectedItem = previousItem;
             else
             {
-                string preferred = artifactBox.Items.Cast<string>().FirstOrDefault(f =>
-                    Path.GetFileName(f).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase) &&
-                    f.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0);
+                ArtifactItem preferred = artifactBox.Items.Cast<ArtifactItem>().FirstOrDefault(item =>
+                    Path.GetFileName(item.FullPath).Equals("firmware.bin", StringComparison.OrdinalIgnoreCase) &&
+                    item.FullPath.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0);
                 if (preferred != null) artifactBox.SelectedItem = preferred;
                 else if (artifactBox.Items.Count > 0) artifactBox.SelectedIndex = 0;
             }
+            int widest = artifactBox.Width;
+            foreach (ArtifactItem item in artifactBox.Items)
+                widest = Math.Max(widest, TextRenderer.MeasureText(item.DisplayName, artifactBox.Font).Width + 35);
+            artifactBox.DropDownWidth = Math.Min(900, widest);
             UpdateHash();
         }
 
-        string SelectedArtifact { get { return artifactBox.SelectedItem as string; } }
+        string SelectedArtifact
+        {
+            get
+            {
+                ArtifactItem item = artifactBox.SelectedItem as ArtifactItem;
+                return item == null ? null : item.FullPath;
+            }
+        }
 
         string CalculateSha256(string file)
         {
@@ -833,6 +873,7 @@ namespace SentinelaFirmwareStudio
         {
             string file = SelectedArtifact;
             hashLabel.Text = file != null && File.Exists(file) ? "SHA-256: " + CalculateSha256(file) : "SHA-256: —";
+            buttonTooltips.SetToolTip(artifactBox, file == null ? "Nenhum artefato selecionado." : file);
         }
 
         void CopyHash()
@@ -858,11 +899,12 @@ namespace SentinelaFirmwareStudio
             string selected = SelectedArtifact;
             if (selected != null && Path.GetExtension(selected).Equals(extension, StringComparison.OrdinalIgnoreCase)) return selected;
 
-            return artifactBox.Items.Cast<string>()
-                .Where(f => Path.GetExtension(f).Equals(extension, StringComparison.OrdinalIgnoreCase))
-                .Where(f => f.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
-                .OrderByDescending(File.GetLastWriteTime)
+            ArtifactItem found = artifactBox.Items.Cast<ArtifactItem>()
+                .Where(item => Path.GetExtension(item.FullPath).Equals(extension, StringComparison.OrdinalIgnoreCase))
+                .Where(item => item.FullPath.IndexOf(Path.DirectorySeparatorChar + environmentBox.Text + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0)
+                .OrderByDescending(item => File.GetLastWriteTime(item.FullPath))
                 .FirstOrDefault();
+            return found == null ? null : found.FullPath;
         }
 
         void ExportSelectedFormat()

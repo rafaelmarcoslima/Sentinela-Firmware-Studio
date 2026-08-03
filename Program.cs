@@ -234,7 +234,7 @@ namespace SentinelaFirmwareStudio
             SelectedTheme = currentTheme;
             SelectedLanguage = currentLanguage;
             Text = I18n.T("Configurações de aparência");
-            Width = 430;
+            Width = 510;
             Height = 285;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;

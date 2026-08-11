@@ -48,6 +48,7 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
 }
 
 & $compiler /nologo /target:winexe /optimize+ "/out:$outputFile" "/win32icon:$iconFile" `
+    "/resource:$(Join-Path $projectRoot 'assets\app.png'),SentinelaFirmwareStudio.AppIconPng" `
     /reference:System.dll `
     /reference:System.Core.dll `
     /reference:System.Drawing.dll `

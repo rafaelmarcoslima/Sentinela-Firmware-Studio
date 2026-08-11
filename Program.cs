@@ -35,6 +35,7 @@ namespace SentinelaFirmwareStudio
             { "Exportar .PS1", "Export .PS1" }, { "Compilar", "Build" }, { "Limpar e compilar", "Clean and build" },
             { "Salvar firmware", "Save firmware" }, { "Criar pacote ZIP", "Create ZIP package" }, { "Histórico", "History" },
             { "Adicionar por pasta", "Add from folder" }, { "Remover", "Remove" }, { "Atualizações", "Updates" },
+            { "Adicionar projeto", "Add project" },
             { "Configurações", "Settings" }, { "Escolha a cor do tema", "Choose theme color" },
             { "Configurações de aparência", "Appearance settings" }, { "Idioma da interface", "Interface language" },
             { "Português", "Portuguese" }, { "Inglês", "English" }, { "Espanhol", "Spanish" },
@@ -97,6 +98,7 @@ namespace SentinelaFirmwareStudio
             { "Exportar .PS1", "Exportar .PS1" }, { "Compilar", "Compilar" }, { "Limpar e compilar", "Limpiar y compilar" },
             { "Salvar firmware", "Guardar firmware" }, { "Criar pacote ZIP", "Crear paquete ZIP" }, { "Histórico", "Historial" },
             { "Adicionar por pasta", "Añadir desde carpeta" }, { "Remover", "Eliminar" }, { "Atualizações", "Actualizaciones" },
+            { "Adicionar projeto", "Añadir proyecto" },
             { "Configurações", "Configuración" }, { "Escolha a cor do tema", "Elija el color del tema" },
             { "Configurações de aparência", "Configuración de apariencia" }, { "Idioma da interface", "Idioma de la interfaz" },
             { "Português", "Portugués" }, { "Inglês", "Inglés" }, { "Espanhol", "Español" },
@@ -161,6 +163,7 @@ namespace SentinelaFirmwareStudio
         public string Folder { get; set; }
         public string Environment { get; set; }
         public string PlatformIoPath { get; set; }
+        public string IconPath { get; set; }
         public override string ToString() { return Name; }
     }
 
@@ -190,8 +193,93 @@ namespace SentinelaFirmwareStudio
         public List<BuildHistoryEntry> BuildHistory { get; set; }
         public string ThemeName { get; set; }
         public string Language { get; set; }
+        public bool SidebarCollapsed { get; set; }
         public DateTime UpdateDeferredUntilUtc { get; set; }
         public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; Language = "pt"; }
+    }
+
+    public sealed class GradientPanel : Panel
+    {
+        public Color StartColor { get; set; }
+        public Color EndColor { get; set; }
+        public GradientPanel() { DoubleBuffered = true; ResizeRedraw = true; }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            using (var brush = new LinearGradientBrush(ClientRectangle, StartColor, EndColor, LinearGradientMode.Horizontal))
+                e.Graphics.FillRectangle(brush, ClientRectangle);
+        }
+    }
+
+    public sealed class ModernScrollBar : Control
+    {
+        int value, maximum, largeChange = 1, dragOffset; bool dragging;
+        public bool Horizontal { get; set; }
+        public Color AccentColor { get; set; }
+        public int Maximum { get { return maximum; } set { maximum = Math.Max(0, value); Value = Math.Min(Value, maximum); Invalidate(); } }
+        public int LargeChange { get { return largeChange; } set { largeChange = Math.Max(1, value); Invalidate(); } }
+        public int Value { get { return value; } set { int next = Math.Max(0, Math.Min(Maximum, value)); if (this.value == next) return; this.value = next; Invalidate(); if (ValueChanged != null) ValueChanged(this, EventArgs.Empty); } }
+        public event EventHandler ValueChanged;
+        public ModernScrollBar() { AccentColor = Color.FromArgb(0, 120, 215); Cursor = Cursors.Hand; SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true); }
+        Rectangle Thumb()
+        {
+            int length = Horizontal ? Width : Height, cross = Horizontal ? Height : Width;
+            int thumbLength = Maximum <= 0 ? length : Math.Max(24, (int)((double)length * LargeChange / (Maximum + LargeChange)));
+            int available = Math.Max(0, length - thumbLength), position = Maximum <= 0 ? 0 : (int)((double)available * Value / Maximum);
+            return Horizontal ? new Rectangle(position, 2, thumbLength, Math.Max(2, cross - 4)) : new Rectangle(2, position, Math.Max(2, cross - 4), thumbLength);
+        }
+        protected override void OnPaint(PaintEventArgs e) { e.Graphics.Clear(Color.FromArgb(4, 20, 36)); using (var b = new SolidBrush(Color.FromArgb(20, 65, 94))) e.Graphics.FillRectangle(b, ClientRectangle); using (var b = new SolidBrush(AccentColor)) e.Graphics.FillRectangle(b, Thumb()); }
+        protected override void OnMouseDown(MouseEventArgs e) { Rectangle thumb = Thumb(); int point = Horizontal ? e.X : e.Y; if (thumb.Contains(e.Location)) { dragging = true; dragOffset = point - (Horizontal ? thumb.X : thumb.Y); Capture = true; } else SetPoint(point, (Horizontal ? thumb.Width : thumb.Height) / 2); base.OnMouseDown(e); }
+        protected override void OnMouseMove(MouseEventArgs e) { if (dragging) SetPoint(Horizontal ? e.X : e.Y, dragOffset); base.OnMouseMove(e); }
+        protected override void OnMouseUp(MouseEventArgs e) { dragging = false; Capture = false; base.OnMouseUp(e); }
+        protected override void OnMouseWheel(MouseEventArgs e) { Value -= Math.Sign(e.Delta) * Math.Max(1, LargeChange / 3); base.OnMouseWheel(e); }
+        void SetPoint(int point, int offset) { Rectangle thumb = Thumb(); int available = Math.Max(1, (Horizontal ? Width - thumb.Width : Height - thumb.Height)); Value = (int)Math.Round((double)Math.Max(0, Math.Min(available, point - offset)) * Maximum / available); }
+    }
+
+    public sealed class ModernTextHost : TableLayoutPanel
+    {
+        const int EmGetFirstVisibleLine = 0x00CE, EmLineScroll = 0x00B6;
+        readonly TextBox textBox; readonly ModernScrollBar vertical = new ModernScrollBar(); readonly ModernScrollBar horizontal = new ModernScrollBar { Horizontal = true }; bool syncing; int horizontalPosition;
+        [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        public ModernTextHost(TextBox target, Color accent)
+        {
+            textBox = target; Dock = DockStyle.Fill; Margin = Padding.Empty; Padding = Padding.Empty; ColumnCount = 2; RowCount = 2; BackColor = Color.FromArgb(4, 20, 36);
+            ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 13)); RowStyles.Add(new RowStyle(SizeType.Percent, 100)); RowStyles.Add(new RowStyle(SizeType.Absolute, 13));
+            textBox.Dock = DockStyle.Fill; textBox.ScrollBars = ScrollBars.None; vertical.Dock = DockStyle.Fill; horizontal.Dock = DockStyle.Fill; vertical.AccentColor = horizontal.AccentColor = accent;
+            Controls.Add(textBox, 0, 0); Controls.Add(vertical, 1, 0); Controls.Add(horizontal, 0, 1); Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(4, 20, 36) }, 1, 1);
+            vertical.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); int delta = vertical.Value - current; if (delta != 0) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(delta)); };
+            horizontal.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int delta = horizontal.Value - horizontalPosition; if (delta != 0) { SendMessage(textBox.Handle, EmLineScroll, new IntPtr(delta), IntPtr.Zero); horizontalPosition = horizontal.Value; } };
+            textBox.MouseWheel += delegate(object sender, MouseEventArgs e) { vertical.Value -= Math.Sign(e.Delta) * 3; };
+            textBox.TextChanged += delegate { UpdateBars(true); }; textBox.Resize += delegate { UpdateBars(false); }; Resize += delegate { UpdateBars(false); };
+        }
+        void UpdateBars(bool followEnd)
+        {
+            if (!textBox.IsHandleCreated) return; syncing = true;
+            try { int lines = Math.Max(1, textBox.Lines.Length), visible = Math.Max(1, textBox.ClientSize.Height / Math.Max(1, textBox.Font.Height)); vertical.Maximum = Math.Max(0, lines - visible); vertical.LargeChange = visible; vertical.Visible = vertical.Maximum > 0; ColumnStyles[1].Width = vertical.Visible ? 13 : 0; if (followEnd) { vertical.Value = vertical.Maximum; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); if (vertical.Maximum > current) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(vertical.Maximum - current)); } int longest = textBox.Lines.Length == 0 ? 0 : textBox.Lines.Max(x => x.Length); int visibleChars = Math.Max(1, textBox.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", textBox.Font).Width)); horizontal.Maximum = Math.Max(0, longest - visibleChars); horizontal.LargeChange = visibleChars; horizontal.Visible = horizontal.Maximum > 0; RowStyles[1].Height = horizontal.Visible ? 13 : 0; horizontalPosition = Math.Min(horizontalPosition, horizontal.Maximum); horizontal.Value = horizontalPosition; }
+            finally { syncing = false; }
+        }
+    }
+
+    public sealed class ModernGridHost : TableLayoutPanel
+    {
+        readonly DataGridView grid; readonly ModernScrollBar vertical = new ModernScrollBar(); readonly ModernScrollBar horizontal = new ModernScrollBar { Horizontal = true }; bool syncing;
+        public ModernGridHost(DataGridView target, Color accent)
+        {
+            grid = target; Dock = DockStyle.Fill; Margin = Padding.Empty; Padding = Padding.Empty; ColumnCount = 2; RowCount = 2; BackColor = Color.FromArgb(9, 38, 57);
+            ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 13)); RowStyles.Add(new RowStyle(SizeType.Percent, 100)); RowStyles.Add(new RowStyle(SizeType.Absolute, 13));
+            grid.Dock = DockStyle.Fill; grid.ScrollBars = ScrollBars.None; vertical.Dock = DockStyle.Fill; horizontal.Dock = DockStyle.Fill; vertical.AccentColor = horizontal.AccentColor = accent;
+            Controls.Add(grid, 0, 0); Controls.Add(vertical, 1, 0); Controls.Add(horizontal, 0, 1); Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(4, 20, 36) }, 1, 1);
+            vertical.ValueChanged += delegate { if (syncing || grid.RowCount == 0) return; try { grid.FirstDisplayedScrollingRowIndex = Math.Min(vertical.Value, Math.Max(0, grid.RowCount - 1)); } catch { } };
+            horizontal.ValueChanged += delegate { if (syncing) return; try { grid.HorizontalScrollingOffset = horizontal.Value; } catch { } };
+            MouseEventHandler wheel = delegate(object sender, MouseEventArgs e) { vertical.Value -= Math.Sign(e.Delta) * Math.Max(1, vertical.LargeChange / 3); }; grid.MouseWheel += wheel; MouseWheel += wheel;
+            Action update = delegate { if (IsHandleCreated) BeginInvoke((MethodInvoker)UpdateBars); };
+            grid.RowsAdded += delegate { update(); }; grid.RowsRemoved += delegate { update(); }; grid.DataBindingComplete += delegate { update(); }; grid.ColumnWidthChanged += delegate { update(); }; grid.Resize += delegate { update(); }; Resize += delegate { update(); };
+        }
+        void UpdateBars()
+        {
+            if (syncing || grid.IsDisposed) return; syncing = true;
+            try { int shown = Math.Max(1, grid.DisplayedRowCount(false)); vertical.Maximum = Math.Max(0, grid.RowCount - shown); vertical.LargeChange = shown; if (grid.FirstDisplayedScrollingRowIndex >= 0) vertical.Value = Math.Min(vertical.Maximum, grid.FirstDisplayedScrollingRowIndex); int total = grid.Columns.Cast<DataGridViewColumn>().Where(x => x.Visible).Sum(x => x.Width); int viewport = Math.Max(1, grid.DisplayRectangle.Width); horizontal.Maximum = Math.Max(0, total - viewport); horizontal.LargeChange = viewport; horizontal.Value = Math.Min(horizontal.Maximum, grid.HorizontalScrollingOffset); vertical.Visible = vertical.Maximum > 0; horizontal.Visible = horizontal.Maximum > 0; ColumnStyles[1].Width = vertical.Visible ? 13 : 0; RowStyles[1].Height = horizontal.Visible ? 13 : 0; }
+            finally { syncing = false; }
+        }
     }
 
     public class BuildProgressForm : Form
@@ -207,6 +295,8 @@ namespace SentinelaFirmwareStudio
             StartPosition = FormStartPosition.CenterParent;
             ControlBox = false;
             ShowInTaskbar = false;
+            BackColor = Color.FromArgb(7, 30, 47);
+            ForeColor = Color.White;
 
             messageLabel.Text = I18n.T("Preparando compilação...");
             messageLabel.AutoSize = false;
@@ -217,6 +307,7 @@ namespace SentinelaFirmwareStudio
 
             var progress = new ProgressBar { Dock = DockStyle.Top, Height = 22, Style = ProgressBarStyle.Marquee, MarqueeAnimationSpeed = 25 };
             var note = new Label { Text = I18n.T("Aguarde. Os controles serão liberados ao terminar."), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter };
+            note.ForeColor = Color.FromArgb(180, 210, 226);
             Controls.Add(note);
             Controls.Add(progress);
             Controls.Add(messageLabel);
@@ -241,9 +332,13 @@ namespace SentinelaFirmwareStudio
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
+            BackColor = Color.FromArgb(7, 30, 47);
+            ForeColor = Color.White;
+            Font = new Font("Segoe UI", 9F);
 
             var title = new Label { Text = I18n.T("Escolha a cor do tema"), Dock = DockStyle.Top, Height = 40, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
             var palette = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 76, Padding = new Padding(16, 4, 16, 4), FlowDirection = FlowDirection.LeftToRight };
+            palette.BackColor = BackColor;
             var tooltip = new ToolTip { ShowAlways = true };
 
             foreach (var theme in themes)
@@ -251,9 +346,9 @@ namespace SentinelaFirmwareStudio
                 string name = theme.Key;
                 var colorButton = new Button { Width = 46, Height = 46, BackColor = theme.Value, FlatStyle = FlatStyle.Flat, Margin = new Padding(7), TabStop = false };
                 colorButton.FlatAppearance.BorderSize = name == currentTheme ? 4 : 1;
-                colorButton.FlatAppearance.BorderColor = name == currentTheme ? Color.Black : Color.White;
+                colorButton.FlatAppearance.BorderColor = name == currentTheme ? Color.White : Color.FromArgb(84, 116, 134);
                 var path = new GraphicsPath();
-                path.AddEllipse(1, 1, 42, 42);
+                path.AddArc(1, 1, 10, 10, 180, 90); path.AddArc(33, 1, 10, 10, 270, 90); path.AddArc(33, 33, 10, 10, 0, 90); path.AddArc(1, 33, 10, 10, 90, 90); path.CloseFigure();
                 colorButton.Region = new Region(path);
                 tooltip.SetToolTip(colorButton, I18n.T(name));
                 colorButton.Click += delegate { SelectedTheme = name; };
@@ -261,22 +356,27 @@ namespace SentinelaFirmwareStudio
             }
 
             var languagePanel = new TableLayoutPanel { Dock = DockStyle.Top, Height = 55, ColumnCount = 2, Padding = new Padding(20, 8, 20, 4) };
+            languagePanel.BackColor = BackColor;
             languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
             languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             languagePanel.Controls.Add(new Label { Text = I18n.T("Idioma da interface"), AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
             var languageBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            languageBox.BackColor = Color.FromArgb(13, 48, 68); languageBox.ForeColor = Color.White;
             languageBox.Items.AddRange(new object[] { "Português", "English", "Español" });
             languageBox.SelectedIndex = currentLanguage == "en" ? 1 : currentLanguage == "es" ? 2 : 0;
             languageBox.SelectedIndexChanged += delegate { SelectedLanguage = languageBox.SelectedIndex == 1 ? "en" : languageBox.SelectedIndex == 2 ? "es" : "pt"; };
             languagePanel.Controls.Add(languageBox, 1, 0);
             var saveButton = new Button { Text = I18n.T("Salvar configuração"), AutoSize = true, Height = 32, Anchor = AnchorStyles.None };
+            saveButton.FlatStyle = FlatStyle.Flat; saveButton.BackColor = Color.FromArgb(0, 120, 215); saveButton.ForeColor = Color.White; saveButton.FlatAppearance.BorderSize = 0;
             saveButton.Click += delegate { DialogResult = DialogResult.OK; Close(); };
             var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
+            bottom.BackColor = BackColor;
             bottom.Controls.Add(saveButton);
             Controls.Add(bottom);
             Controls.Add(languagePanel);
             Controls.Add(palette);
             Controls.Add(title);
+            foreach (Control control in Controls) if (control != saveButton) control.ForeColor = Color.White;
         }
     }
 
@@ -293,7 +393,7 @@ namespace SentinelaFirmwareStudio
 
     public class MainForm : Form
     {
-        const string AppVersion = "1.1.3";
+        const string AppVersion = "1.1.4";
         const string UpdateAssetName = "SentinelaFirmwareStudio.exe";
         const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
         const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";
@@ -329,9 +429,20 @@ namespace SentinelaFirmwareStudio
         FirmwareProject projectSelectedBeforeManualCreation;
         ToolTip buttonTooltips = new ToolTip { ShowAlways = true, InitialDelay = 350, ReshowDelay = 150, AutoPopDelay = 7000 };
         TableLayoutPanel themeToolbar;
+        TableLayoutPanel rootLayout;
+        Panel sidebarPanel;
+        FlowLayoutPanel projectCards;
+        Button sidebarToggleButton;
+        Button sidebarAddButton;
+        Label sidebarTitle;
+        Label sidebarSubtitle;
+        Label headerProjectTitle;
+        Label headerProjectSubtitle;
+        GradientPanel modernHeader;
+        bool sidebarCollapsed;
         TabControl mainTabs;
-        TabPage configurationTab;
-        TabPage compilationTab;
+        Panel configurationTab;
+        Panel compilationTab;
         Color currentAccent = Color.FromArgb(0, 120, 215);
         Process activeProcess;
         Stopwatch buildStopwatch = new Stopwatch();
@@ -370,55 +481,89 @@ namespace SentinelaFirmwareStudio
 
         void BuildUi()
         {
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, Padding = new Padding(10) };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 265));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            Controls.Add(root);
+            rootLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = Padding.Empty, Padding = Padding.Empty };
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270));
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            Controls.Add(rootLayout);
 
-            themeToolbar = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, AutoSize = false, Height = 52, MinimumSize = new Size(0, 52), MaximumSize = new Size(0, 52), Padding = new Padding(8, 5, 4, 5), Margin = new Padding(0, 0, 0, 8) };
-            themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            themeToolbar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            themeToolbar.Controls.Add(new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Font = new Font("Segoe UI", 12F, FontStyle.Bold), Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3), ForeColor = Color.White }, 0, 0);
-            var headerActions = new FlowLayoutPanel { AutoSize = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent, Anchor = AnchorStyles.Right };
-            headerActions.Controls.Add(new Label { Text = "v" + AppVersion, AutoSize = true, ForeColor = Color.White, Margin = new Padding(3, 10, 8, 3) });
-            headerActions.Controls.Add(MakeButton("Atualizações", delegate { CheckForUpdates(true); }));
-            headerActions.Controls.Add(MakeButton("Configurações", delegate { OpenThemeSettings(); }));
-            themeToolbar.Controls.Add(headerActions, 1, 0);
-            root.Controls.Add(themeToolbar, 0, 0);
-            root.SetColumnSpan(themeToolbar, 2);
+            sidebarPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10, 12, 10, 10) };
+            var sidebarLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = Padding.Empty, Padding = Padding.Empty };
+            sidebarLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+            sidebarLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            sidebarLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            var brand = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
+            sidebarToggleButton = new Button { Width = 58, Height = 58, Left = 0, Top = 0, FlatStyle = FlatStyle.Flat, TabStop = false, Cursor = Cursors.Hand };
+            sidebarToggleButton.FlatAppearance.BorderSize = 0;
+            sidebarToggleButton.Image = CreateApplicationIcon(48);
+            sidebarToggleButton.ImageAlign = ContentAlignment.MiddleCenter;
+            sidebarToggleButton.Tag = "sidebar-toggle";
+            sidebarToggleButton.Click += delegate { ToggleSidebar(); };
+            sidebarTitle = new Label { Text = "Sentinela Firmware", AutoSize = true, Left = 68, Top = 8, Font = new Font("Segoe UI", 12F, FontStyle.Bold) };
+            sidebarSubtitle = new Label { Text = "PROJETOS SALVOS", AutoSize = true, Left = 68, Top = 35, Font = new Font("Segoe UI", 7.5F) };
+            brand.Controls.Add(sidebarToggleButton);
+            brand.Controls.Add(sidebarTitle);
+            brand.Controls.Add(sidebarSubtitle);
+            sidebarLayout.Controls.Add(brand, 0, 0);
 
-            var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, Padding = new Padding(0, 0, 10, 0) };
-            left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            left.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            left.Controls.Add(new Label { Text = "PROJETOS SALVOS", AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 5, 3, 8) }, 0, 0);
+            projectCards = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Margin = Padding.Empty, Padding = new Padding(0, 4, 0, 4) };
+            sidebarLayout.Controls.Add(projectCards, 0, 1);
             projects.Dock = DockStyle.Fill;
+            projects.Visible = false;
             projects.DrawMode = DrawMode.OwnerDrawFixed;
             projects.ItemHeight = 22;
             projects.DrawItem += DrawProjectItem;
             projects.SelectedIndexChanged += delegate { DisplaySelectedProject(); };
-            left.Controls.Add(projects, 0, 1);
-            var projectButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            addProjectButton = MakeButton("Adicionar por pasta", delegate { AddProject(); });
+            addProjectButton = MakeButton("Adicionar por pasta", delegate { ShowAddProjectMenu(); });
             removeProjectButton = MakeButton("Remover", delegate { RemoveProject(); });
-            projectButtons.Controls.Add(addProjectButton);
-            projectButtons.Controls.Add(removeProjectButton);
-            left.Controls.Add(projectButtons, 0, 2);
-            root.Controls.Add(left, 0, 1);
+            sidebarAddButton = addProjectButton;
+            sidebarAddButton.Tag = "sidebar-add";
+            sidebarAddButton.Dock = DockStyle.Fill;
+            sidebarAddButton.AutoSize = false;
+            sidebarAddButton.Margin = new Padding(0, 7, 0, 0);
+            sidebarLayout.Controls.Add(sidebarAddButton, 0, 2);
+            sidebarPanel.Controls.Add(sidebarLayout);
+            sidebarPanel.Controls.Add(projects);
+            rootLayout.Controls.Add(sidebarPanel, 0, 0);
 
-            var rightHost = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+            var mainShell = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Padding = new Padding(14, 12, 14, 12), Margin = Padding.Empty };
+            mainShell.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
+            mainShell.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            rootLayout.Controls.Add(mainShell, 1, 0);
+
+            modernHeader = new GradientPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 10), Padding = new Padding(18, 8, 12, 8) };
+            var headerLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.Transparent, Margin = Padding.Empty, Padding = Padding.Empty };
+            headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350));
+            headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var titlePanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+            headerProjectTitle = new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Left = 0, Top = 2, Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = Color.White, BackColor = Color.Transparent };
+            headerProjectSubtitle = new Label { Text = "Selecione um projeto para começar", AutoSize = false, Dock = DockStyle.Bottom, Height = 23, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.WhiteSmoke, BackColor = Color.Transparent };
+            titlePanel.Controls.Add(headerProjectTitle);
+            titlePanel.Controls.Add(headerProjectSubtitle);
+            headerLayout.Controls.Add(titlePanel, 0, 0);
+            var headerActions = new FlowLayoutPanel { AutoSize = false, Dock = DockStyle.Fill, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent, Margin = Padding.Empty, Padding = new Padding(0, 1, 0, 0) };
+            headerActions.Controls.Add(new Label { Text = "v" + AppVersion, AutoSize = false, Width = 58, Height = 38, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 9.5F), Margin = new Padding(0, 2, 6, 0) });
+            var updateButton = MakeButton("Atualizações", delegate { CheckForUpdates(true); });
+            var settingsButton = MakeButton("Configurações", delegate { OpenThemeSettings(); });
+            updateButton.Text = I18n.T("Atualizações"); updateButton.Width = 128; updateButton.Height = 38; updateButton.MinimumSize = new Size(128, 38); updateButton.AutoSize = false; updateButton.Tag = "header-update"; updateButton.Image = CreateHeaderUpdateIcon(22); updateButton.ImageAlign = ContentAlignment.MiddleLeft; updateButton.TextAlign = ContentAlignment.MiddleCenter; updateButton.Padding = new Padding(7, 0, 4, 0); updateButton.Margin = new Padding(3, 2, 3, 0);
+            settingsButton.Text = I18n.T("Configurações"); settingsButton.Width = 145; settingsButton.Height = 38; settingsButton.MinimumSize = new Size(145, 38); settingsButton.AutoSize = false; settingsButton.Tag = "header-settings"; settingsButton.Image = CreateHeaderSettingsIcon(22); settingsButton.ImageAlign = ContentAlignment.MiddleLeft; settingsButton.TextAlign = ContentAlignment.MiddleCenter; settingsButton.Padding = new Padding(7, 0, 4, 0); settingsButton.Margin = new Padding(3, 2, 3, 0);
+            headerActions.Controls.Add(updateButton);
+            headerActions.Controls.Add(settingsButton);
+            headerLayout.Controls.Add(headerActions, 1, 0);
+            modernHeader.Controls.Add(headerLayout);
+            themeToolbar = headerLayout;
+            mainShell.Controls.Add(modernHeader, 0, 0);
+
+            var rightHost = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1, Margin = Padding.Empty };
             rightHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             rightHost.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.Controls.Add(rightHost, 1, 1);
+            mainShell.Controls.Add(rightHost, 0, 1);
 
-            mainTabs = new TabControl { Dock = DockStyle.Fill, Font = this.Font, Padding = new Point(16, 6) };
-            configurationTab = new TabPage("Configuração do projeto") { Padding = new Padding(10), BackColor = BackColor };
-            compilationTab = new TabPage("Compilação e arquivos") { Padding = new Padding(10), BackColor = BackColor };
-            mainTabs.TabPages.Add(configurationTab);
-            mainTabs.TabPages.Add(compilationTab);
-            rightHost.Controls.Add(mainTabs, 0, 0);
+            mainTabs = new TabControl { Visible = false };
+            configurationTab = new Panel { Padding = new Padding(10), BackColor = BackColor };
+            compilationTab = new Panel { Padding = new Padding(14), BackColor = BackColor, Dock = DockStyle.Fill, Margin = Padding.Empty };
+            rightHost.Controls.Add(compilationTab, 0, 0);
 
             var configurationLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 7, ColumnCount = 1 };
             for (int i = 0; i < 6; i++) configurationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -452,7 +597,8 @@ namespace SentinelaFirmwareStudio
             detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
             configurationLayout.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
-            var artifactsGroup = new GroupBox { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Fill, AutoSize = false, Height = 165, MinimumSize = new Size(0, 165), MaximumSize = new Size(0, 165), Padding = new Padding(10, 8, 10, 12), Font = new Font(Font, FontStyle.Bold) };
+            var artifactsGroup = new Panel { Dock = DockStyle.Fill, AutoSize = false, Height = 165, MinimumSize = new Size(0, 165), MaximumSize = new Size(0, 165), Padding = new Padding(12, 36, 12, 12), Margin = new Padding(0, 0, 0, 8) };
+            artifactsGroup.Controls.Add(new Label { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Top, Height = 30, Top = 0, Font = new Font(Font, FontStyle.Bold), ForeColor = Color.White });
             var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = false, RowCount = 3, ColumnCount = 3, Padding = new Padding(0, 0, 0, 6) };
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -488,6 +634,7 @@ namespace SentinelaFirmwareStudio
             artifactsLayout.Controls.Add(MakeHelpButton("Scripts de compilação", "Cria um arquivo .BAT ou .PS1 com o comando para recompilar o projeto fora deste aplicativo. Esses scripts não são firmware."), 2, 2);
             SetLocalizedTooltip(scriptsLabel, "Arquivos de comando para repetir a compilação fora do aplicativo.");
             artifactsGroup.Controls.Add(artifactsLayout);
+            artifactsLayout.BringToFront();
             compilationLayout.Controls.Add(artifactsGroup, 0, 0);
 
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(0, 5, 0, 3) };
@@ -512,7 +659,7 @@ namespace SentinelaFirmwareStudio
             logBox.Font = new Font("Consolas", 9F);
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
-            compilationLayout.Controls.Add(logBox, 0, 2);
+            compilationLayout.Controls.Add(new ModernTextHost(logBox, currentAccent), 0, 2);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
             statusLabel.Text = "Pronto";
@@ -614,6 +761,57 @@ namespace SentinelaFirmwareStudio
             return bitmap;
         }
 
+        Bitmap CreateGlyphBitmap(string glyph, int size, Color color)
+        {
+            var bitmap = new Bitmap(size, size);
+            using (var graphics = Graphics.FromImage(bitmap))
+            using (var font = new Font("Segoe UI Symbol", size * .66F, FontStyle.Bold, GraphicsUnit.Pixel))
+            using (var brush = new SolidBrush(color))
+            using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                graphics.DrawString(glyph, font, brush, new RectangleF(0, -1, size, size), format);
+            }
+            return bitmap;
+        }
+
+        Bitmap CreateHeaderUpdateIcon(int size)
+        {
+            var bitmap = new Bitmap(size, size);
+            using (var g = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.White, 2.2F))
+            using (var brush = new SolidBrush(Color.White))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                g.DrawArc(pen, 3, 3, size - 7, size - 7, 35, 285);
+                g.FillPolygon(brush, new[] { new Point(size - 3, 4), new Point(size - 10, 4), new Point(size - 4, 10) });
+            }
+            return bitmap;
+        }
+
+        Bitmap CreateHeaderSettingsIcon(int size)
+        {
+            var bitmap = new Bitmap(size, size);
+            using (var g = Graphics.FromImage(bitmap))
+            using (var pen = new Pen(Color.White, 2F))
+            using (var brush = new SolidBrush(Color.White))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                int center = size / 2;
+                for (int i = 0; i < 8; i++)
+                {
+                    double angle = Math.PI * i / 4D;
+                    int x1 = center + (int)(Math.Cos(angle) * (size * .29)); int y1 = center + (int)(Math.Sin(angle) * (size * .29));
+                    int x2 = center + (int)(Math.Cos(angle) * (size * .46)); int y2 = center + (int)(Math.Sin(angle) * (size * .46));
+                    g.DrawLine(pen, x1, y1, x2, y2);
+                }
+                g.DrawEllipse(pen, 5, 5, size - 11, size - 11);
+                g.FillEllipse(brush, center - 2, center - 2, 4, 4);
+            }
+            return bitmap;
+        }
+
         void OpenThemeSettings()
         {
             using (var dialog = new ThemePickerForm(settings.ThemeName, settings.Language ?? "pt", themes))
@@ -643,11 +841,14 @@ namespace SentinelaFirmwareStudio
             foreach (var pair in localizationKeys) pair.Key.Text = I18n.T(pair.Value);
             foreach (var pair in buttonKeys)
             {
-                pair.Key.Text = I18n.T(pair.Value);
+                if (string.Equals(pair.Key.Tag as string, "header-update")) pair.Key.Text = I18n.T("Atualizações");
+                else if (string.Equals(pair.Key.Tag as string, "header-settings")) pair.Key.Text = I18n.T("Configurações");
+                else pair.Key.Text = I18n.T(pair.Value);
                 buttonTooltips.SetToolTip(pair.Key, I18n.T(GetButtonTooltip(pair.Value)));
             }
             foreach (var pair in tooltipKeys) buttonTooltips.SetToolTip(pair.Key, TranslateTooltipKey(pair.Value));
             statusLabel.Text = I18n.T("Pronto");
+            ApplySidebarState();
         }
 
         void SetLocalizedTooltip(Control control, string portugueseKey)
@@ -672,23 +873,27 @@ namespace SentinelaFirmwareStudio
             Color accent;
             if (!themes.TryGetValue(settings.ThemeName ?? "Azul", out accent)) accent = themes["Azul"];
             currentAccent = accent;
-            BackColor = BlendWithWhite(accent, 0.94F);
-            if (configurationTab != null) configurationTab.BackColor = BackColor;
-            if (compilationTab != null) compilationTab.BackColor = BackColor;
+            BackColor = Color.FromArgb(5, 22, 38);
+            if (configurationTab != null) configurationTab.BackColor = Color.FromArgb(9, 38, 57);
+            if (compilationTab != null) compilationTab.BackColor = Color.FromArgb(9, 38, 57);
             ApplyThemeToControls(this, accent);
-            if (themeToolbar != null)
+            if (modernHeader != null)
             {
-                themeToolbar.BackColor = accent;
-                foreach (Control control in themeToolbar.Controls)
-                {
-                    var label = control as Label;
-                    if (label != null) label.ForeColor = Color.White;
-                }
+                modernHeader.StartColor = Darken(accent, 0.42F);
+                modernHeader.EndColor = accent;
+                modernHeader.Invalidate();
             }
-            logBox.BackColor = Color.FromArgb(28, 31, 36);
-            logBox.ForeColor = Color.Gainsboro;
-            statusLabel.ForeColor = accent;
+            if (sidebarPanel != null) sidebarPanel.BackColor = Color.FromArgb(16, 32, 47);
+            if (projectCards != null) projectCards.BackColor = Color.FromArgb(16, 32, 47);
+            if (sidebarTitle != null) sidebarTitle.ForeColor = Color.White;
+            if (sidebarSubtitle != null) sidebarSubtitle.ForeColor = Color.FromArgb(151, 187, 207);
+            logBox.BackColor = Color.FromArgb(2, 16, 27);
+            logBox.ForeColor = Color.FromArgb(220, 235, 243);
+            statusLabel.ForeColor = Color.FromArgb(102, 205, 255);
+            hashLabel.ForeColor = Color.FromArgb(174, 205, 222);
             projects.Invalidate();
+            if (mainTabs != null) mainTabs.Invalidate();
+            RebuildProjectCards();
             ApplyWindowsTitleBar(accent);
         }
 
@@ -701,15 +906,61 @@ namespace SentinelaFirmwareStudio
                 {
                     button.FlatStyle = FlatStyle.Flat;
                     button.FlatAppearance.BorderColor = accent;
-                    button.BackColor = accent;
+                    button.BackColor = Darken(accent, 0.18F);
                     button.ForeColor = Color.White;
                     string glyphKey = buttonKeys.ContainsKey(button) ? buttonKeys[button] : button.Text;
-                    button.Image = string.Equals(button.Tag as string, "help", StringComparison.Ordinal) ? null : CreateButtonIcon(GetButtonGlyph(glyphKey), Color.White);
+                    string buttonTag = button.Tag as string;
+                    if (string.Equals(buttonTag, "sidebar-toggle", StringComparison.Ordinal)) button.Image = CreateApplicationIcon(48);
+                    else if (string.Equals(buttonTag, "sidebar-add", StringComparison.Ordinal)) button.Image = sidebarCollapsed ? CreateGlyphBitmap("+", 28, Color.White) : CreateButtonIcon("+", Color.White);
+                    else if (string.Equals(buttonTag, "header-update", StringComparison.Ordinal)) button.Image = CreateHeaderUpdateIcon(22);
+                    else if (string.Equals(buttonTag, "header-settings", StringComparison.Ordinal)) button.Image = CreateHeaderSettingsIcon(22);
+                    else button.Image = string.Equals(buttonTag, "help", StringComparison.Ordinal) ? null : CreateButtonIcon(GetButtonGlyph(glyphKey), Color.White);
                     button.FlatAppearance.MouseOverBackColor = BlendWithWhite(accent, 0.18F);
                     button.FlatAppearance.MouseDownBackColor = BlendWithWhite(accent, 0.32F);
                 }
+                else if (control is TextBox)
+                {
+                    var text = (TextBox)control;
+                    if (text != logBox) { text.BackColor = Color.FromArgb(13, 48, 68); text.ForeColor = Color.White; text.BorderStyle = BorderStyle.FixedSingle; }
+                }
+                else if (control is ModernScrollBar)
+                {
+                    ((ModernScrollBar)control).AccentColor = accent; control.Invalidate();
+                }
+                else if (control is ComboBox)
+                {
+                    control.BackColor = Color.FromArgb(13, 48, 68); control.ForeColor = Color.White;
+                }
+                else if (control is Label || control is GroupBox)
+                {
+                    if (control.Parent != modernHeader && !IsInsideHeader(control)) control.ForeColor = Color.FromArgb(225, 237, 244);
+                }
+                else if (control is Panel || control is TableLayoutPanel || control is FlowLayoutPanel || control is TabPage)
+                {
+                    if (control != modernHeader && control != sidebarPanel && control != projectCards && !IsInsideHeader(control)) control.BackColor = Color.FromArgb(9, 38, 57);
+                }
                 ApplyThemeToControls(control, accent);
             }
+        }
+
+        bool IsInsideHeader(Control control)
+        {
+            while (control != null) { if (control == modernHeader) return true; control = control.Parent; }
+            return false;
+        }
+
+        Color Darken(Color color, float amount)
+        {
+            return Color.FromArgb((int)(color.R * (1F - amount)), (int)(color.G * (1F - amount)), (int)(color.B * (1F - amount)));
+        }
+
+        void DrawModernTab(object sender, DrawItemEventArgs e)
+        {
+            bool selected = e.Index == mainTabs.SelectedIndex;
+            Color background = selected ? currentAccent : Color.FromArgb(11, 42, 61);
+            using (var brush = new SolidBrush(background)) e.Graphics.FillRectangle(brush, e.Bounds);
+            TextRenderer.DrawText(e.Graphics, mainTabs.TabPages[e.Index].Text, Font, e.Bounds, Color.White,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
         }
 
         Color BlendWithWhite(Color color, float whiteAmount)
@@ -718,6 +969,211 @@ namespace SentinelaFirmwareStudio
             int green = (int)(color.G * (1F - whiteAmount) + 255F * whiteAmount);
             int blue = (int)(color.B * (1F - whiteAmount) + 255F * whiteAmount);
             return Color.FromArgb(red, green, blue);
+        }
+
+        Bitmap CreateFirmwareIcon(int size)
+        {
+            var bitmap = new Bitmap(size, size);
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                using (var body = new SolidBrush(Color.FromArgb(12, 201, 170)))
+                using (var path = RoundedRectangle(new Rectangle(2, 5, size - 5, size - 10), 6)) g.FillPath(body, path);
+                using (var dark = new SolidBrush(Color.FromArgb(4, 42, 62))) g.FillRectangle(dark, size / 3, 9, size / 3, size - 18);
+                using (var line = new Pen(Color.White, Math.Max(1, size / 14F)))
+                {
+                    g.DrawLine(line, 5, size / 2, size / 3, size / 2);
+                    g.DrawLine(line, size * 2 / 3, size / 2, size - 5, size / 2);
+                }
+                using (var flash = new SolidBrush(Color.FromArgb(255, 210, 52)))
+                {
+                    Point[] points = { new Point(size / 2 + 1, 7), new Point(size / 2 - 4, size / 2), new Point(size / 2 + 1, size / 2), new Point(size / 2 - 2, size - 7), new Point(size / 2 + 7, size / 2 - 3), new Point(size / 2 + 2, size / 2 - 3) };
+                    g.FillPolygon(flash, points);
+                }
+            }
+            return bitmap;
+        }
+
+        Bitmap CreateApplicationIcon(int size)
+        {
+            try
+            {
+                using (Stream embedded = typeof(MainForm).Assembly.GetManifestResourceStream("SentinelaFirmwareStudio.AppIconPng"))
+                {
+                    if (embedded != null)
+                    {
+                        using (var original = Image.FromStream(embedded))
+                        {
+                            var rendered = new Bitmap(size, size);
+                            using (Graphics graphics = Graphics.FromImage(rendered))
+                            {
+                                graphics.Clear(Color.Transparent);
+                                graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+                                graphics.SmoothingMode = SmoothingMode.HighQuality;
+                                graphics.DrawImage(original, new Rectangle(0, 0, size, size));
+                            }
+                            return rendered;
+                        }
+                    }
+                }
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "app.ico");
+                if (!File.Exists(iconPath)) iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                if (File.Exists(iconPath))
+                {
+                    using (var source = new Icon(iconPath, size, size)) return source.ToBitmap();
+                }
+                if (Icon != null)
+                {
+                    using (var source = new Icon(Icon, size, size)) return source.ToBitmap();
+                }
+            }
+            catch { }
+            return CreateFirmwareIcon(size);
+        }
+
+        GraphicsPath RoundedRectangle(Rectangle bounds, int radius)
+        {
+            int diameter = radius * 2;
+            var path = new GraphicsPath();
+            path.AddArc(bounds.Left, bounds.Top, diameter, diameter, 180, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Top, diameter, diameter, 270, 90);
+            path.AddArc(bounds.Right - diameter, bounds.Bottom - diameter, diameter, diameter, 0, 90);
+            path.AddArc(bounds.Left, bounds.Bottom - diameter, diameter, diameter, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        void ToggleSidebar()
+        {
+            sidebarCollapsed = !sidebarCollapsed;
+            settings.SidebarCollapsed = sidebarCollapsed;
+            ApplySidebarState();
+            SaveSettings();
+        }
+
+        void ApplySidebarState()
+        {
+            if (rootLayout == null) return;
+            rootLayout.ColumnStyles[0].Width = sidebarCollapsed ? 76 : 270;
+            sidebarTitle.Visible = !sidebarCollapsed;
+            sidebarSubtitle.Visible = !sidebarCollapsed;
+            sidebarToggleButton.Width = sidebarCollapsed ? 48 : 58;
+            sidebarToggleButton.Height = sidebarCollapsed ? 48 : 58;
+            sidebarToggleButton.Left = sidebarCollapsed ? 4 : 0;
+            sidebarToggleButton.Top = sidebarCollapsed ? 4 : 0;
+            sidebarToggleButton.Image = CreateApplicationIcon(sidebarCollapsed ? 38 : 48);
+            sidebarAddButton.Text = sidebarCollapsed ? "" : I18n.T("Adicionar projeto");
+            sidebarAddButton.Image = sidebarCollapsed ? CreateGlyphBitmap("+", 28, Color.White) : CreateButtonIcon("+", Color.White);
+            sidebarAddButton.ImageAlign = sidebarCollapsed ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft;
+            sidebarAddButton.TextImageRelation = sidebarCollapsed ? TextImageRelation.Overlay : TextImageRelation.ImageBeforeText;
+            sidebarAddButton.Padding = Padding.Empty;
+            if (sidebarCollapsed) { sidebarAddButton.Dock = DockStyle.None; sidebarAddButton.Width = 48; sidebarAddButton.Height = 48; sidebarAddButton.MinimumSize = new Size(48, 48); sidebarAddButton.Anchor = AnchorStyles.Left | AnchorStyles.Bottom; sidebarAddButton.Font = Font; sidebarAddButton.Margin = Padding.Empty; }
+            else { sidebarAddButton.Dock = DockStyle.Fill; sidebarAddButton.MinimumSize = new Size(0, 32); sidebarAddButton.Font = Font; sidebarAddButton.Margin = new Padding(0, 7, 0, 0); }
+            RebuildProjectCards();
+        }
+
+        void RebuildProjectCards()
+        {
+            if (projectCards == null) return;
+            projectCards.SuspendLayout();
+            projectCards.Controls.Clear();
+            FirmwareProject selectedProject = SelectedProject;
+            foreach (FirmwareProject project in settings.Projects)
+            {
+                var card = new Panel { Width = sidebarCollapsed ? 50 : Math.Max(220, projectCards.ClientSize.Width - 22), Height = sidebarCollapsed ? 52 : 66, Margin = new Padding(0, 3, 0, 3), Cursor = Cursors.Hand, Tag = project };
+                bool selected = object.ReferenceEquals(project, selectedProject);
+                card.BackColor = selected ? currentAccent : Color.FromArgb(19, 42, 59);
+                var icon = new PictureBox { Image = CreateProjectIcon(project, sidebarCollapsed ? 34 : 38), SizeMode = PictureBoxSizeMode.CenterImage, Width = sidebarCollapsed ? 50 : 48, Height = card.Height, Left = 0, Top = 0, BackColor = Color.Transparent, Tag = project };
+                card.Controls.Add(icon);
+                if (!sidebarCollapsed)
+                {
+                    var title = new Label { Text = project.Name, AutoEllipsis = true, Left = 52, Top = 12, Width = Math.Max(90, card.Width - 86), Height = 20, ForeColor = Color.White, Font = new Font(Font, FontStyle.Bold), BackColor = Color.Transparent, Tag = project };
+                    var sub = new Label { Text = string.IsNullOrWhiteSpace(project.Environment) ? "PlatformIO" : project.Environment, AutoEllipsis = true, Left = 52, Top = 35, Width = Math.Max(90, card.Width - 86), Height = 18, ForeColor = Color.FromArgb(176, 205, 222), BackColor = Color.Transparent, Tag = project };
+                    var menu = new Button { Text = "•••", Width = 30, Height = 30, Left = card.Width - 34, Top = 17, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.Transparent, Tag = project, Cursor = Cursors.Hand };
+                    menu.FlatAppearance.BorderSize = 0;
+                    menu.Click += delegate(object sender, EventArgs e) { ShowProjectMenu((Button)sender, project); };
+                    card.Controls.Add(title); card.Controls.Add(sub); card.Controls.Add(menu);
+                    title.Click += ProjectCardClick; sub.Click += ProjectCardClick;
+                }
+                icon.Click += ProjectCardClick;
+                card.Click += ProjectCardClick;
+                buttonTooltips.SetToolTip(card, project.Name + " — " + project.Folder);
+                projectCards.Controls.Add(card);
+            }
+            projectCards.ResumeLayout();
+        }
+
+        void ProjectCardClick(object sender, EventArgs e)
+        {
+            var control = sender as Control;
+            var project = control == null ? null : control.Tag as FirmwareProject;
+            if (project != null && !editingConfiguration) projects.SelectedItem = project;
+        }
+
+        Image CreateProjectIcon(FirmwareProject project, int size)
+        {
+            try
+            {
+                string path = project == null ? null : project.IconPath;
+                if (!string.IsNullOrWhiteSpace(path) && path.StartsWith("glyph:", StringComparison.OrdinalIgnoreCase)) return CreateGlyphIcon(path.Substring(6), size);
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                {
+                    string extension = Path.GetExtension(path).ToLowerInvariant();
+                    if (extension == ".exe" || extension == ".ico" || extension == ".lnk")
+                    {
+                        using (Icon icon = Icon.ExtractAssociatedIcon(path)) if (icon != null) return new Bitmap(icon.ToBitmap(), new Size(size, size));
+                    }
+                    using (Image image = Image.FromFile(path)) return new Bitmap(image, new Size(size, size));
+                }
+            }
+            catch { }
+            return CreateFirmwareIcon(size);
+        }
+
+        Image CreateGlyphIcon(string glyph, int size)
+        {
+            var bitmap = new Bitmap(size, size);
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(Color.Transparent);
+                using (var path = RoundedRectangle(new Rectangle(1, 1, size - 2, size - 2), Math.Max(5, size / 5)))
+                using (var brush = new SolidBrush(currentAccent)) g.FillPath(brush, path);
+                using (var font = new Font("Segoe UI Symbol", size * .46F, FontStyle.Regular, GraphicsUnit.Pixel))
+                using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                    g.DrawString(string.IsNullOrWhiteSpace(glyph) ? "⚡" : glyph, font, Brushes.White, new RectangleF(1, 0, size - 2, size - 2), format);
+            }
+            return bitmap;
+        }
+
+        void ShowProjectMenu(Button anchor, FirmwareProject project)
+        {
+            var menu = new ContextMenuStrip { ShowImageMargin = false, BackColor = Color.FromArgb(19, 42, 59), ForeColor = Color.White, Renderer = new ToolStripProfessionalRenderer(new DarkColorTable(currentAccent)) };
+            menu.Items.Add(I18n.T("Editar configuração"), null, delegate { projects.SelectedItem = project; BeginConfigurationEdit(); });
+            menu.Items.Add(I18n.T("Abrir pasta"), null, delegate { projects.SelectedItem = project; OpenProjectFolder(); });
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(I18n.T("Remover"), null, delegate { projects.SelectedItem = project; RemoveProject(); });
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        void ShowAddProjectMenu()
+        {
+            var menu = new ContextMenuStrip { ShowImageMargin = false, BackColor = Color.FromArgb(19, 42, 59), ForeColor = Color.White, Renderer = new ToolStripProfessionalRenderer(new DarkColorTable(currentAccent)) };
+            menu.Items.Add(L("Adicionar automaticamente por pasta", "Add automatically from folder", "Añadir automáticamente desde carpeta"), null, delegate { AddProject(); });
+            menu.Items.Add(I18n.T("Novo manual"), null, delegate { BeginManualProjectCreation(); });
+            menu.Show(sidebarAddButton, new Point(0, sidebarAddButton.Height));
+        }
+
+        sealed class DarkColorTable : ProfessionalColorTable
+        {
+            readonly Color accent;
+            public DarkColorTable(Color accentColor) { accent = accentColor; UseSystemColors = false; }
+            public override Color MenuItemSelected { get { return accent; } }
+            public override Color MenuItemBorder { get { return accent; } }
+            public override Color ToolStripDropDownBackground { get { return Color.FromArgb(19, 42, 59); } }
+            public override Color ImageMarginGradientBegin { get { return Color.FromArgb(19, 42, 59); } }
+            public override Color ImageMarginGradientMiddle { get { return Color.FromArgb(19, 42, 59); } }
+            public override Color ImageMarginGradientEnd { get { return Color.FromArgb(19, 42, 59); } }
         }
 
         void DrawProjectItem(object sender, DrawItemEventArgs e)
@@ -791,11 +1247,13 @@ namespace SentinelaFirmwareStudio
             catch (Exception ex) { MessageBox.Show("Não foi possível carregar os projetos: " + ex.Message); }
             if (settings.Projects == null) settings.Projects = new List<FirmwareProject>();
             if (settings.BuildHistory == null) settings.BuildHistory = new List<BuildHistoryEntry>();
+            sidebarCollapsed = settings.SidebarCollapsed;
             string detectedPlatformIo = FindPlatformIo();
             if (detectedPlatformIo != null)
                 foreach (FirmwareProject project in settings.Projects)
                     if (string.IsNullOrWhiteSpace(project.PlatformIoPath) || !File.Exists(project.PlatformIoPath)) project.PlatformIoPath = detectedPlatformIo;
             RefreshProjectList();
+            ApplySidebarState();
         }
 
         void SaveSettings()
@@ -807,9 +1265,12 @@ namespace SentinelaFirmwareStudio
 
         void RefreshProjectList()
         {
+            FirmwareProject selected = SelectedProject;
             projects.DataSource = null;
             projects.DataSource = settings.Projects;
+            if (selected != null && settings.Projects.Contains(selected)) projects.SelectedItem = selected;
             if (projects.Items.Count > 0 && projects.SelectedIndex < 0) projects.SelectedIndex = 0;
+            RebuildProjectCards();
         }
 
         FirmwareProject SelectedProject { get { return projects.SelectedItem as FirmwareProject; } }
@@ -825,6 +1286,9 @@ namespace SentinelaFirmwareStudio
                 folderBox.Clear();
                 platformIoBox.Clear();
                 environmentBox.Text = "";
+                if (headerProjectTitle != null) headerProjectTitle.Text = "SENTINELA FIRMWARE STUDIO";
+                if (headerProjectSubtitle != null) headerProjectSubtitle.Text = L("Selecione um projeto para começar", "Select a project to begin", "Seleccione un proyecto para comenzar");
+                RebuildProjectCards();
                 return;
             }
             nameBox.Text = project.Name;
@@ -834,35 +1298,115 @@ namespace SentinelaFirmwareStudio
             DetectEnvironments(false);
             RefreshArtifacts();
             statusLabel.Text = L("Projeto selecionado: ", "Selected project: ", "Proyecto seleccionado: ") + project.Name;
+            if (headerProjectTitle != null) headerProjectTitle.Text = project.Name;
+            if (headerProjectSubtitle != null) headerProjectSubtitle.Text = project.Environment + "  •  " + project.Folder;
+            RebuildProjectCards();
         }
 
         void BeginConfigurationEdit()
         {
             if (SelectedProject == null) return;
-            mainTabs.SelectedTab = configurationTab;
-            creatingManualProject = false;
-            SetConfigurationEditMode(true);
-            nameBox.Focus();
-            nameBox.SelectAll();
-            statusLabel.Text = L("Editando configuração — salve ou cancele para continuar", "Editing settings — save or cancel to continue", "Editando configuración — guarde o cancele para continuar");
+            ShowProjectEditor(SelectedProject, false);
         }
 
         void BeginManualProjectCreation()
         {
-            mainTabs.SelectedTab = configurationTab;
-            projectSelectedBeforeManualCreation = SelectedProject;
-            projects.SelectedIndex = -1;
-            creatingManualProject = true;
-            ResetProjectView();
-            nameBox.Clear();
-            folderBox.Clear();
-            platformIoBox.Text = DefaultPlatformIo();
-            environmentBox.Items.Clear();
-            environmentBox.Text = "";
-            singleEnvironmentDetected = false;
-            SetConfigurationEditMode(true);
-            nameBox.Focus();
-            statusLabel.Text = L("Novo projeto manual — preencha os campos e salve ou cancele", "New manual project — complete the fields and save or cancel", "Nuevo proyecto manual — complete los campos y guarde o cancele");
+            ShowProjectEditor(null, true);
+        }
+
+        void ShowProjectEditor(FirmwareProject source, bool createNew)
+        {
+            var dialog = new Form { Text = createNew ? I18n.T("Novo manual") : I18n.T("Editar configuração"), Width = 760, Height = 520, MinimumSize = new Size(680, 500), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = Color.FromArgb(7, 30, 47), ForeColor = Color.White, Font = Font, Icon = Icon };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(22), BackColor = dialog.BackColor };
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 65)); root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+            var title = new Label { Text = createNew ? L("NOVO PROJETO MANUAL", "NEW MANUAL PROJECT", "NUEVO PROYECTO MANUAL") : L("EDITAR PROJETO", "EDIT PROJECT", "EDITAR PROYECTO"), Dock = DockStyle.Fill, Font = new Font("Segoe UI Semibold", 15F), ForeColor = Color.White, TextAlign = ContentAlignment.MiddleLeft };
+            root.Controls.Add(title, 0, 0);
+
+            var fields = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 6, BackColor = Color.FromArgb(10, 38, 59), Padding = new Padding(18) };
+            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); fields.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 125));
+            for (int i = 0; i < 5; i++) fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52)); fields.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var n = new TextBox { Text = source == null ? "" : source.Name, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
+            var f = new TextBox { Text = source == null ? "" : source.Folder, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
+            var p = new TextBox { Text = source == null ? DefaultPlatformIo() : source.PlatformIoPath, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
+            var env = new ComboBox { Text = source == null ? "" : source.Environment, Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown, Margin = new Padding(3, 10, 3, 10) };
+            string selectedIconPath = source == null ? "" : source.IconPath;
+            var preview = new PictureBox { Width = 48, Height = 48, SizeMode = PictureBoxSizeMode.CenterImage, Image = CreateProjectIcon(source, 42), BackColor = Color.Transparent, Margin = new Padding(3) };
+            Action<Control, int> addLabel = delegate(Control control, int row) { fields.Controls.Add(control, 0, row); };
+            addLabel(new Label { Text = I18n.T("Nome"), AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.White }, 0); fields.Controls.Add(n, 1, 0); fields.SetColumnSpan(n, 2);
+            addLabel(new Label { Text = I18n.T("Pasta do projeto"), AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.White }, 1); fields.Controls.Add(f, 1, 1);
+            var browseFolder = MakeModernDialogButton(I18n.T("Procurar..."), 115); fields.Controls.Add(browseFolder, 2, 1);
+            addLabel(new Label { Text = "PlatformIO", AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.White }, 2); fields.Controls.Add(p, 1, 2);
+            var browsePio = MakeModernDialogButton(I18n.T("Procurar..."), 115); fields.Controls.Add(browsePio, 2, 2);
+            addLabel(new Label { Text = I18n.T("Ambiente"), AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.White }, 3); fields.Controls.Add(env, 1, 3);
+            var detect = MakeModernDialogButton(I18n.T("Detectar"), 115); fields.Controls.Add(detect, 2, 3);
+            addLabel(new Label { Text = L("Ícone do projeto", "Project icon", "Icono del proyecto"), AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Color.White }, 4);
+            var iconActions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent, Margin = Padding.Empty };
+            iconActions.Controls.Add(preview);
+            var chooseFile = MakeModernDialogButton(L("Imagem ou aplicativo", "Image or application", "Imagen o aplicación"), 170);
+            var chooseSystem = MakeModernDialogButton(L("Ícones do sistema", "System icons", "Iconos del sistema"), 145);
+            var resetIcon = MakeModernDialogButton(L("Usar padrão", "Use default", "Usar predeterminado"), 120);
+            iconActions.Controls.Add(chooseFile); iconActions.Controls.Add(chooseSystem); iconActions.Controls.Add(resetIcon); fields.Controls.Add(iconActions, 1, 4); fields.SetColumnSpan(iconActions, 2);
+            root.Controls.Add(fields, 0, 1);
+
+            Action detectEnvironments = delegate
+            {
+                string ini = Path.Combine(f.Text.Trim(), "platformio.ini"); if (!File.Exists(ini)) { MessageBox.Show(dialog, I18n.T("platformio.ini não encontrado.")); return; }
+                string old = env.Text; env.Items.Clear(); foreach (Match match in Regex.Matches(File.ReadAllText(ini), @"(?im)^\s*\[env:([^\]]+)\]")) env.Items.Add(match.Groups[1].Value.Trim());
+                env.DropDownStyle = ComboBoxStyle.DropDownList; if (env.Items.Contains(old)) env.Text = old; else if (env.Items.Count > 0) env.SelectedIndex = 0;
+            };
+            browseFolder.Click += delegate { using (var picker = new FolderBrowserDialog { SelectedPath = f.Text, Description = I18n.T("Pasta do projeto") }) if (picker.ShowDialog(dialog) == DialogResult.OK) { f.Text = picker.SelectedPath; if (string.IsNullOrWhiteSpace(n.Text)) n.Text = new DirectoryInfo(f.Text).Name; detectEnvironments(); } };
+            browsePio.Click += delegate { using (var picker = new OpenFileDialog { Filter = "PlatformIO (platformio.exe)|platformio.exe|Executáveis (*.exe)|*.exe", FileName = p.Text }) if (picker.ShowDialog(dialog) == DialogResult.OK) p.Text = picker.FileName; };
+            detect.Click += delegate { detectEnvironments(); };
+            chooseFile.Click += delegate { using (var picker = new OpenFileDialog { Filter = "Imagens e aplicativos|*.png;*.jpg;*.jpeg;*.bmp;*.ico;*.exe;*.lnk|Todos os arquivos|*.*" }) if (picker.ShowDialog(dialog) == DialogResult.OK) { selectedIconPath = picker.FileName; preview.Image = CreateProjectIcon(new FirmwareProject { IconPath = selectedIconPath }, 42); } };
+            chooseSystem.Click += delegate { string glyph = ChooseSystemIcon(dialog); if (glyph != null) { selectedIconPath = "glyph:" + glyph; preview.Image = CreateGlyphIcon(glyph, 42); } };
+            resetIcon.Click += delegate { selectedIconPath = ""; preview.Image = CreateFirmwareIcon(42); };
+
+            var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, BackColor = dialog.BackColor, Padding = new Padding(0, 12, 0, 0) };
+            var save = MakeModernDialogButton(I18n.T("Salvar configuração"), 155); var cancel = MakeModernDialogButton(L("Cancelar", "Cancel", "Cancelar"), 110); footer.Controls.Add(save); footer.Controls.Add(cancel); root.Controls.Add(footer, 0, 2);
+            cancel.Click += delegate { dialog.DialogResult = DialogResult.Cancel; dialog.Close(); };
+            save.Click += delegate
+            {
+                if (string.IsNullOrWhiteSpace(n.Text)) { MessageBox.Show(dialog, I18n.T("Informe um nome para o projeto.")); return; }
+                if (!Directory.Exists(f.Text.Trim())) { MessageBox.Show(dialog, I18n.T("A pasta do projeto não existe.")); return; }
+                if (!File.Exists(Path.Combine(f.Text.Trim(), "platformio.ini"))) { MessageBox.Show(dialog, I18n.T("A pasta selecionada não contém platformio.ini.")); return; }
+                if (!File.Exists(p.Text.Trim())) { MessageBox.Show(dialog, I18n.T("O executável do PlatformIO não foi encontrado.")); return; }
+                if (string.IsNullOrWhiteSpace(env.Text)) { MessageBox.Show(dialog, I18n.T("Informe ou detecte um ambiente PlatformIO.")); return; }
+                FirmwareProject target = source ?? new FirmwareProject(); target.Name = n.Text.Trim(); target.Folder = f.Text.Trim(); target.PlatformIoPath = p.Text.Trim(); target.Environment = env.Text.Trim(); target.IconPath = selectedIconPath;
+                if (source == null) settings.Projects.Add(target); SaveSettings(); RefreshProjectList(); projects.SelectedItem = target; dialog.DialogResult = DialogResult.OK; dialog.Close();
+            };
+            dialog.Controls.Add(root);
+            StyleModernDialog(dialog);
+            dialog.ShowDialog(this);
+        }
+
+        Button MakeModernDialogButton(string text, int width)
+        {
+            var button = new Button { Text = text, Width = width, Height = 36, Margin = new Padding(4), BackColor = Color.FromArgb(20, 65, 94), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 9F) };
+            button.FlatAppearance.BorderSize = 0; button.FlatAppearance.MouseOverBackColor = currentAccent; return button;
+        }
+
+        void StyleModernDialog(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                var text = control as TextBox; if (text != null) { text.BackColor = Color.FromArgb(13, 48, 68); text.ForeColor = Color.White; text.BorderStyle = BorderStyle.None; }
+                var combo = control as ComboBox; if (combo != null) { combo.BackColor = Color.FromArgb(13, 48, 68); combo.ForeColor = Color.White; combo.FlatStyle = FlatStyle.Flat; }
+                StyleModernDialog(control);
+            }
+        }
+
+        string ChooseSystemIcon(IWin32Window owner)
+        {
+            string selected = null; string[] glyphs = { "⚡", "⚙", "★", "◆", "●", "■", "⌂", "✦", "✓", "↻", "♟", "∞", "▶", "▣", "⧉", "⌕", "☁", "♜", "♥", "☀", "✉", "♫", "⚑", "✎" };
+            using (var dialog = new Form { Text = L("Ícones do sistema", "System icons", "Iconos del sistema"), Width = 570, Height = 410, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = Color.FromArgb(7, 30, 47), ForeColor = Color.White, Font = Font, Icon = Icon })
+            {
+                var title = new Label { Text = L("Escolha um ícone", "Choose an icon", "Elija un icono"), Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 18, 0, 0), Font = new Font("Segoe UI Semibold", 13F), ForeColor = Color.White };
+                var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, RowCount = 4, Padding = new Padding(18), BackColor = Color.FromArgb(10, 38, 59) };
+                for (int i = 0; i < 6; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.666F)); for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+                for (int i = 0; i < glyphs.Length; i++) { string glyph = glyphs[i]; var button = new Button { Dock = DockStyle.Fill, Margin = new Padding(7), Image = CreateGlyphIcon(glyph, 48), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(20, 65, 94), Cursor = Cursors.Hand }; button.FlatAppearance.BorderSize = 0; button.Click += delegate { selected = glyph; dialog.DialogResult = DialogResult.OK; dialog.Close(); }; grid.Controls.Add(button, i % 6, i / 6); }
+                dialog.Controls.Add(grid); dialog.Controls.Add(title); dialog.ShowDialog(owner);
+            }
+            return selected;
         }
 
         void CancelConfigurationEdit()
@@ -895,6 +1439,7 @@ namespace SentinelaFirmwareStudio
             cancelEditButton.Visible = editingConfiguration;
             newManualButton.Enabled = !editingConfiguration;
             projects.Enabled = !editingConfiguration;
+            if (projectCards != null) projectCards.Enabled = !editingConfiguration;
             addProjectButton.Enabled = !editingConfiguration;
             removeProjectButton.Enabled = hasProject && !editingConfiguration;
             buildButton.Enabled = hasProject && !editingConfiguration;
@@ -933,7 +1478,6 @@ namespace SentinelaFirmwareStudio
                 SaveSettings();
                 RefreshProjectList();
                 projects.SelectedItem = project;
-                mainTabs.SelectedTab = configurationTab;
             }
         }
 
@@ -1018,8 +1562,6 @@ namespace SentinelaFirmwareStudio
         {
             if (activeProcess != null) return;
             if (!ValidateBuildInputs()) return;
-            mainTabs.SelectedTab = compilationTab;
-            SaveCurrentProject();
             logBox.Clear();
             buildStopwatch.Restart();
             SetBusy(true);
@@ -1308,7 +1850,20 @@ namespace SentinelaFirmwareStudio
             grid.DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList();
             grid.CellFormatting += delegate(object sender, DataGridViewCellFormattingEventArgs e) { if (e.ColumnIndex == 2 && e.Value != null) e.Value = I18n.T(e.Value.ToString()); };
             grid.BackgroundColor = Color.White;
-            historyForm.Controls.Add(grid);
+            grid.BackgroundColor = Color.FromArgb(7, 30, 47);
+            grid.BorderStyle = BorderStyle.None;
+            grid.EnableHeadersVisualStyles = false;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Darken(currentAccent, 0.35F);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Darken(currentAccent, 0.35F);
+            grid.DefaultCellStyle.BackColor = Color.FromArgb(9, 38, 57);
+            grid.DefaultCellStyle.ForeColor = Color.White;
+            grid.DefaultCellStyle.SelectionBackColor = currentAccent;
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(12, 45, 65);
+            grid.GridColor = Color.FromArgb(35, 75, 96);
+            historyForm.BackColor = Color.FromArgb(7, 30, 47);
+            historyForm.Controls.Add(new ModernGridHost(grid, currentAccent));
             historyForm.ShowDialog(this);
         }
 

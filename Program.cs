@@ -164,6 +164,7 @@ namespace SentinelaFirmwareStudio
         public string Environment { get; set; }
         public string PlatformIoPath { get; set; }
         public string IconPath { get; set; }
+        public bool IsFavorite { get; set; }
         public override string ToString() { return Name; }
     }
 
@@ -1088,7 +1089,7 @@ namespace SentinelaFirmwareStudio
                 card.Controls.Add(icon);
                 if (!sidebarCollapsed)
                 {
-                    var title = new Label { Text = project.Name, AutoEllipsis = true, Left = 52, Top = 12, Width = Math.Max(90, card.Width - 86), Height = 20, ForeColor = Color.White, Font = new Font(Font, FontStyle.Bold), BackColor = Color.Transparent, Tag = project };
+                    var title = new Label { Text = (project.IsFavorite ? "★  " : "") + project.Name, AutoEllipsis = true, Left = 52, Top = 12, Width = Math.Max(90, card.Width - 86), Height = 20, ForeColor = Color.White, Font = new Font(Font, FontStyle.Bold), BackColor = Color.Transparent, Tag = project };
                     var sub = new Label { Text = string.IsNullOrWhiteSpace(project.Environment) ? "PlatformIO" : project.Environment, AutoEllipsis = true, Left = 52, Top = 35, Width = Math.Max(90, card.Width - 86), Height = 18, ForeColor = Color.FromArgb(176, 205, 222), BackColor = Color.Transparent, Tag = project };
                     var menu = new Button { Text = "•••", Width = 30, Height = 30, Left = card.Width - 34, Top = 17, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.Transparent, Tag = project, Cursor = Cursors.Hand };
                     menu.FlatAppearance.BorderSize = 0;
@@ -1152,8 +1153,39 @@ namespace SentinelaFirmwareStudio
             menu.Items.Add(I18n.T("Editar configuração"), null, delegate { projects.SelectedItem = project; BeginConfigurationEdit(); });
             menu.Items.Add(I18n.T("Abrir pasta"), null, delegate { projects.SelectedItem = project; OpenProjectFolder(); });
             menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(project.IsFavorite ? L("Remover dos favoritos", "Remove from favorites", "Quitar de favoritos") : L("Favoritar", "Add to favorites", "Añadir a favoritos"), null, delegate { ToggleProjectFavorite(project); });
+            ToolStripItem moveUp = menu.Items.Add(L("Mover para cima", "Move up", "Mover hacia arriba"), null, delegate { MoveProject(project, -1); });
+            ToolStripItem moveDown = menu.Items.Add(L("Mover para baixo", "Move down", "Mover hacia abajo"), null, delegate { MoveProject(project, 1); });
+            int projectIndex = settings.Projects.IndexOf(project);
+            moveUp.Enabled = projectIndex > 0;
+            moveDown.Enabled = projectIndex >= 0 && projectIndex < settings.Projects.Count - 1;
+            menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(I18n.T("Remover"), null, delegate { projects.SelectedItem = project; RemoveProject(); });
             menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        void ToggleProjectFavorite(FirmwareProject project)
+        {
+            if (project == null) return;
+            project.IsFavorite = !project.IsFavorite;
+            SaveSettings();
+            RefreshProjectList();
+            projects.SelectedItem = project;
+            RebuildProjectCards();
+        }
+
+        void MoveProject(FirmwareProject project, int direction)
+        {
+            if (project == null || direction == 0) return;
+            int currentIndex = settings.Projects.IndexOf(project);
+            int targetIndex = currentIndex + direction;
+            if (currentIndex < 0 || targetIndex < 0 || targetIndex >= settings.Projects.Count) return;
+            settings.Projects.RemoveAt(currentIndex);
+            settings.Projects.Insert(targetIndex, project);
+            SaveSettings();
+            RefreshProjectList();
+            projects.SelectedItem = project;
+            RebuildProjectCards();
         }
 
         void ShowAddProjectMenu()

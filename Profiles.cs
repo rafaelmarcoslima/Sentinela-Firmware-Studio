@@ -78,14 +78,18 @@ namespace SentinelaFirmwareStudio {
  }
  // Preserve native input/accessibility while making disabled captions readable.
  public sealed class ProfileCheckBox : CheckBox {
-  public ProfileCheckBox(){SetStyle(ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);ForeColor=Color.FromArgb(225,237,244);}
+  public Color OutlineColor {get;set;}
+  public ProfileCheckBox(){OutlineColor=Color.FromArgb(40,90,120);SetStyle(ControlStyles.UserPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);ForeColor=Color.FromArgb(225,237,244);}
   public override Size GetPreferredSize(Size proposedSize){var size=base.GetPreferredSize(proposedSize);return new Size(size.Width+6,Math.Max(size.Height,Font.Height+4));}
   protected override void OnPaint(PaintEventArgs e){
    e.Graphics.Clear(BackColor);
-   var state=Checked?(Enabled?System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal:System.Windows.Forms.VisualStyles.CheckBoxState.CheckedDisabled):(Enabled?System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal:System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedDisabled);
-   Size glyph=CheckBoxRenderer.GetGlyphSize(e.Graphics,state);
+   int side=Math.Max(13,Font.Height);Size glyph=new Size(side,side);
    int x=RightToLeft==RightToLeft.Yes?Width-Padding.Right-glyph.Width:Padding.Left;
-   CheckBoxRenderer.DrawCheckBox(e.Graphics,new Point(x,(Height-glyph.Height)/2),state);
+   int top=(Height-glyph.Height)/2;
+   var box=new Rectangle(x,top,glyph.Width-1,glyph.Height-1);
+   using(var brush=new SolidBrush(Checked?Color.FromArgb(18,78,106):Color.FromArgb(13,48,68)))e.Graphics.FillRectangle(brush,box);
+   using(var pen=new Pen(OutlineColor))e.Graphics.DrawRectangle(pen,box);
+   if(Checked)using(var pen=new Pen(Enabled?Color.White:Color.FromArgb(166,191,207),2))e.Graphics.DrawLines(pen,new[]{new Point(x+3,top+side/2),new Point(x+side/2-1,top+side-4),new Point(x+side-3,top+3)});
    var bounds=new Rectangle(Padding.Left+glyph.Width+6,Padding.Top,Math.Max(0,Width-Padding.Horizontal-glyph.Width-6),Math.Max(0,Height-Padding.Vertical));
    var flags=TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.WordBreak;
    if(RightToLeft==RightToLeft.Yes){bounds.X=Padding.Left;flags=TextFormatFlags.Right|TextFormatFlags.RightToLeft|TextFormatFlags.VerticalCenter|TextFormatFlags.WordBreak;}
@@ -94,17 +98,7 @@ namespace SentinelaFirmwareStudio {
    if(Focused&&ShowFocusCues)ControlPaint.DrawFocusRectangle(e.Graphics,bounds,ForeColor,BackColor);
   }
  }
- public sealed class ProfileComboBox : ComboBox {
-  public ProfileComboBox(){DrawMode=DrawMode.OwnerDrawFixed;FlatStyle=FlatStyle.Flat;BackColor=Color.FromArgb(13,48,68);ForeColor=Color.FromArgb(225,237,244);}
-  protected override void OnDrawItem(DrawItemEventArgs e){
-   Color background=(e.State&DrawItemState.Selected)!=0&&Enabled?Color.FromArgb(25,86,121):BackColor;
-   using(var brush=new SolidBrush(background))e.Graphics.FillRectangle(brush,e.Bounds);
-   string caption=e.Index>=0&&e.Index<Items.Count?GetItemText(Items[e.Index]):Text;
-   var bounds=Rectangle.Inflate(e.Bounds,-3,0);
-   TextRenderer.DrawText(e.Graphics,caption,e.Font??Font,bounds,Enabled?ForeColor:Color.FromArgb(166,191,207),TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
-   if(Enabled&&(e.State&DrawItemState.Focus)!=0)e.DrawFocusRectangle();
-  }
- }
+ public sealed class ProfileComboBox : ReadableSerialCombo { }
  public sealed class ProfileButton : Button {
   protected override void OnPaint(PaintEventArgs e){
    if(Enabled){base.OnPaint(e);return;}
@@ -138,6 +132,7 @@ namespace SentinelaFirmwareStudio {
    fields.Controls.Add(inheritProfileBox,0,2);fields.SetColumnSpan(inheritProfileBox,4);var migration=new ProfileGroupBox{AutoSize=true,Dock=DockStyle.Top,Padding=new Padding(8,16,8,6),Margin=new Padding(0,5,0,2)};PText(migration,"Migração de instalação antiga","Legacy installation migration","Migración de instalación antigua");adoptProfileBox.Dock=DockStyle.Top;migration.Controls.Add(adoptProfileBox);fields.Controls.Add(migration,0,3);fields.SetColumnSpan(migration,4);
    profileTestButton=MakeButton("Testar conexão",delegate{TestProfileConnection();});PText(profileTestButton,"Testar conexão","Test connection","Probar conexión");fields.Controls.Add(profileTestButton,0,4);fields.SetColumnSpan(profileTestButton,2);profileTestButton.Width=170;profileTestLabel.AutoSize=true;profileTestLabel.Margin=new Padding(12);PText(profileTestLabel,"Teste pendente","Not tested","Prueba pendiente");fields.Controls.Add(profileTestLabel,2,4);fields.SetColumnSpan(profileTestLabel,2);group.Controls.Add(fields);
    var previous=buildLayout.Controls.Cast<Control>().Select(c=>new{Control=c,Row=buildLayout.GetRow(c)}).ToArray();buildLayout.RowCount++;buildLayout.RowStyles.Insert(0,new RowStyle(SizeType.AutoSize));foreach(var item in previous)buildLayout.SetRow(item.Control,item.Row+1);buildLayout.Controls.Add(group,0,0);
+   OrganizeCompilationWorkspace(buildLayout,group);
    companyProfileBox.SelectedIndexChanged+=delegate{if(!refreshingProfiles){RefreshDependentProfiles(null,null);ProfileSelectionChanged();}};serverProfileBox.SelectedIndexChanged+=delegate{ProfileSelectionChanged();};wifiProfileBox.SelectedIndexChanged+=delegate{ProfileSelectionChanged();};wifiModeBox.SelectedIndexChanged+=delegate{ProfileSelectionChanged();};inheritProfileBox.CheckedChanged+=delegate{ProfileSelectionChanged();};adoptProfileBox.CheckedChanged+=delegate{ProfileSelectionChanged();};
   }
   void ProfileField(TableLayoutPanel table,int col,int row,string pt,string en,string es,Control input){var label=new Label{AutoSize=true,Margin=new Padding(3,8,8,8)};PText(label,pt,en,es);table.Controls.Add(label,col,row);table.Controls.Add(input,col+1,row);}

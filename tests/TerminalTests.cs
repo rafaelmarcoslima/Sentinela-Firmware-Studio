@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.IO.Ports;
 using System.Reflection;
 using System.Threading;
@@ -39,10 +40,15 @@ static class TerminalTests
         Check(Field<Button>(form,"monitorConnectButton").Enabled,"Selecting a port did not enable monitor connection");
         Wait((Task)Call(form,"StartMonitorConnection"));Check(current.IsOpen,"Monitor did not connect");
         Wait((Task)Call(form,"StartMonitorConnection"));Check(connections==1,"Monitor opened duplicate serial connections");
-        Call(form,"SetTerminalMode",1);Application.DoEvents();
+        Call(form,"ShowMonitorView");Application.DoEvents();
         current.Emit("ESP connected\n\x1b[32mgreen-line\x1b[0m\n"+key+"\n"+password+"\n");Call(form,"FlushTerminalViews");var monitor=Field<TextBox>(form,"monitorBox");Check(monitor.Text.Contains("ESP connected")&&!monitor.Text.Contains(key)&&!monitor.Text.Contains(password),"Serial output missing or leaking credentials");Check(monitor.Text.Contains("ESP connected\r\n")&&!monitor.Text.Contains("\x1b"),"Serial newlines or color control sequences are unreadable");
         Field<Button>(form,"monitorPauseButton").PerformClick();current.Emit("paused-message\n");Call(form,"FlushTerminalViews");Check(!monitor.Text.Contains("paused-message"),"Pause still updates the monitor view");
         Field<Button>(form,"monitorPauseButton").PerformClick();Check(monitor.Text.Contains("paused-message"),"Resume lost buffered messages");
+        var sections=Field<TabControl>(form,"compilationSections");Check(sections.TabCount==4,"Compilation tools are not grouped into four sections");
+        var liveConnection=Field<IMonitorConnection>(form,"monitorConnection");for(int section=0;section<sections.TabCount;section++){sections.SelectedIndex=section;Application.DoEvents();Check(ReferenceEquals(liveConnection,Field<IMonitorConnection>(form,"monitorConnection"))&&current.IsOpen,"Changing sections interrupted the serial monitor");}
+        Call(form,"ShowMonitorView");Application.DoEvents();
+        Check(Field<TextBox>(form,"logBox").ScrollBars==ScrollBars.None&&monitor.ScrollBars==ScrollBars.None,"Terminals still use white native scrollbars");
+        Check(Field<TextBox>(form,"logBox").Parent is ModernTextHost&&monitor.Parent is ModernTextHost,"Dark terminal scrolling host missing");
         var dock=Field<Panel>(form,"terminalHost");Call(form,"ShowMonitorView");Application.DoEvents();Check(dock.Bottom<=dock.Parent.ClientSize.Height,"Terminal is clipped outside the scrollable layout");
         Call(form,"OpenExpandedTerminals",2);Application.DoEvents();var popup=Field<Form>(form,"expandedTerminals");var split=Field<SplitContainer>(form,"expandedSplit");Check(!split.Panel1Collapsed&&!split.Panel2Collapsed,"Side-by-side mode hides a terminal");
         var sameConnection=Field<IMonitorConnection>(form,"monitorConnection");Call(form,"SetBusy",true);Call(form,"ShowBuildProgress","Compilando...");Check(form.Enabled&&Field<TextBox>(form,"logBox").Enabled&&monitor.Enabled,"Build disables terminal access or parent-window contrast");Check(Field<Button>(form,"monitorPauseButton").Enabled&&!Field<Button>(form,"buildButton").Enabled,"Build operation did not separate terminal tools from configuration controls");
@@ -59,6 +65,12 @@ static class TerminalTests
         var deadline=System.Diagnostics.Stopwatch.StartNew();while(connections<2&&deadline.ElapsedMilliseconds<4000){Application.DoEvents();Thread.Sleep(10);}Check(connections==2,"Monitor did not reconnect after upload");
         Wait((Task)Call(form,"StartMonitorConnection"));Check(current.IsOpen,"Automatic reconnection did not open the port");Wait((Task)Call(form,"DisconnectMonitor"));Check(current.Disposed,"Disconnect did not dispose the serial connection");
         Set(form,"monitorFactory",new Func<string,int,IMonitorConnection>((name,baud)=>new FakeSerial{FailOpen=true}));Wait((Task)Call(form,"StartMonitorConnection"));Check(Field<IMonitorConnection>(form,"monitorConnection")==null&&monitor.Text.Contains("Port busy"),"Busy port failure was not reported safely");
+        Call(form,"ShowMonitorView");Call(form,"SetTerminalMode",0);Application.DoEvents();
+        Call(form,"AppendLog",string.Join("\n",Enumerable.Repeat(new string('x',400),180).ToArray()));Call(form,"FlushTerminalViews");
+        var build=Field<TextBox>(form,"logBox");var host=(ModernTextHost)build.Parent;
+        var vertical=host.Controls.OfType<ModernScrollBar>().First(bar=>!bar.Horizontal);
+        Check(vertical.Maximum>0&&vertical.Value>0,"Dark vertical scrollbar does not track the log");
+        Set(form,"buildAutoScroll",false);vertical.Value=0;Call(form,"AppendLog","\nnew line");Call(form,"FlushTerminalViews");Check(vertical.Value==0,"Disabled auto-scroll still jumps to the end");Set(form,"buildAutoScroll",true);
         return checks;
     }
 }

@@ -10,9 +10,26 @@ using System.Windows.Forms;
 
 namespace SentinelaFirmwareStudio
 {
-    public sealed class ReadableSerialCombo : ComboBox
+    public class ReadableSerialCombo : ComboBox
     {
-        public ReadableSerialCombo() { DrawMode=DrawMode.OwnerDrawFixed;BackColor=Color.FromArgb(13,48,68);ForeColor=Color.White; }
+        public Color OutlineColor { get; set; }
+        public ReadableSerialCombo() { OutlineColor=Color.FromArgb(40,90,120);FlatStyle=FlatStyle.Flat;DrawMode=DrawMode.OwnerDrawFixed;BackColor=Color.FromArgb(13,48,68);ForeColor=Color.White; }
+        protected override void WndProc(ref Message message) {
+            base.WndProc(ref message);
+            if(IsDisposed||!IsHandleCreated)return;
+            if(message.Msg==0x000F)using(var graphics=Graphics.FromHwnd(Handle))PaintChrome(graphics);
+            else if((message.Msg==0x0318||message.Msg==0x0317)&&message.WParam!=IntPtr.Zero)using(var graphics=Graphics.FromHdc(message.WParam))PaintChrome(graphics);
+        }
+        void PaintChrome(Graphics graphics) {
+            if(Width<8||Height<8)return;
+            Color surface=Enabled?BackColor:Color.FromArgb(27,56,75);
+            int arrowWidth=Math.Min(22,SystemInformation.VerticalScrollBarWidth+4);
+            var arrow=new Rectangle(Width-arrowWidth,1,arrowWidth-1,Height-2);
+            using(var brush=new SolidBrush(surface))graphics.FillRectangle(brush,arrow);
+            using(var pen=new Pen(OutlineColor)) { graphics.DrawRectangle(pen,0,0,Math.Max(0,Width-1),Math.Max(0,Height-1));graphics.DrawRectangle(pen,1,1,Math.Max(0,Width-3),Math.Max(0,Height-3)); }
+            int center=arrow.Left+arrow.Width/2,y=Height/2;
+            using(var pen=new Pen(Enabled?ForeColor:Color.FromArgb(200,219,232),1.5F))graphics.DrawLines(pen,new[]{new Point(center-4,y-2),new Point(center,y+2),new Point(center+4,y-2)});
+        }
         protected override void OnDrawItem(DrawItemEventArgs e) {
             if(e.Bounds.Width<=0||e.Bounds.Height<=0)return;
             Color background=!Enabled?Color.FromArgb(27,56,75):(e.State&DrawItemState.Selected)!=0?Color.FromArgb(28,91,125):BackColor;
@@ -154,7 +171,7 @@ namespace SentinelaFirmwareStudio
             PText(follow,"Rolagem automática","Auto-scroll","Desplazamiento automático");follow.CheckedChanged += delegate { if(serial)monitorAutoScroll=follow.Checked;else buildAutoScroll=follow.Checked; };tools.Controls.Add(follow);
             if (serial) {
                 monitorBox = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, WordWrap = false, ScrollBars = ScrollBars.Both, Font = new Font("Consolas",9F), BackColor = Color.FromArgb(2,16,27), ForeColor = Color.FromArgb(220,235,243) };
-                pane.Controls.Add(monitorBox);
+                pane.Controls.Add(new ModernTextHost(monitorBox,currentAccent));
                 var connectionTools = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true };
                 monitorPortBox = new ReadableSerialCombo { Width = 86, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Porta COM", Margin = new Padding(3,7,3,3) };
                 monitorBaudBox = new ReadableSerialCombo { Width = 91, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Baud rate", Margin = new Padding(3,7,3,3) };
@@ -168,7 +185,7 @@ namespace SentinelaFirmwareStudio
                 connectionTools.Controls.Add(monitorConnectButton);connectionTools.Controls.Add(monitorDisconnectButton);connectionTools.Controls.Add(monitorPauseButton);
                 monitorStatusLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(174,205,222), Margin = new Padding(5,10,3,3) };connectionTools.Controls.Add(monitorStatusLabel);
                 pane.Controls.Add(connectionTools);
-            } else pane.Controls.Add(logBox);
+            } else pane.Controls.Add(new ModernTextHost(logBox,currentAccent));
             pane.Controls.Add(tools);
             return pane;
         }
@@ -223,9 +240,11 @@ namespace SentinelaFirmwareStudio
             int selection=box.SelectionStart,length=box.SelectionLength;
             if(!follow) SendMessage(box.Handle,0x000B,IntPtr.Zero,IntPtr.Zero);
             int firstLine=(int)SendMessage(box.Handle,0x00CE,IntPtr.Zero,IntPtr.Zero);
+            var scrollHost=box.Parent as ModernTextHost;if(scrollHost!=null)scrollHost.FollowTail=follow;
             box.Text=value;
             if(follow) { box.SelectionStart=box.TextLength;box.SelectionLength=0;box.ScrollToCaret(); }
             else { box.Select(Math.Min(selection,box.TextLength),Math.Min(length,Math.Max(0,box.TextLength-selection)));int now=(int)SendMessage(box.Handle,0x00CE,IntPtr.Zero,IntPtr.Zero);SendMessage(box.Handle,0x00B6,IntPtr.Zero,new IntPtr(firstLine-now));SendMessage(box.Handle,0x000B,new IntPtr(1),IntPtr.Zero);box.Invalidate(); }
+            if(scrollHost!=null)scrollHost.SyncScrollBars(false);
         }
         void CaptureTerminalSecrets()
         {
@@ -317,7 +336,7 @@ namespace SentinelaFirmwareStudio
             monitorPortBox.SelectedItem=reconnectMonitorPort;monitorBaudBox.SelectedItem=reconnectMonitorBaud.ToString();
             await StartMonitorConnection();
         }
-        void ScrollToTerminals() { if(expandedTerminals==null&&terminalHost!=null)compilationTab.ScrollControlIntoView(terminalHost); }
+        void ScrollToTerminals() { SelectTerminalSection(); }
         void ShowMonitorView() { SetTerminalMode(1);RefreshMonitorPorts();ScrollToTerminals(); }
         bool IsTerminalControl(Control control)
         {

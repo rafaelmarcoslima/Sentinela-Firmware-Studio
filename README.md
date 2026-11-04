@@ -75,3 +75,15 @@ Os testes usam um gravador simulado e perfis fictícios; não gravam em disposit
 - Durante a compilação, configurações e seleção de projeto ficam protegidas, enquanto terminais e ferramentas de visualização continuam disponíveis. Textos de orientação e status permanecem legíveis; controles seriais usam cores próprias para manter contraste mesmo desabilitados.
 
 Os testes cobrem conexão simulada, porta ocupada, pausa/retomada, histórico limitado, proteção de credenciais, janela ampliada e coordenação com a gravação USB. A comunicação com o ESP e o comportamento do driver precisam de validação física.
+
+
+## Organização da compilação
+
+A aba Compilação tem quatro seções internas, sem uma rolagem geral misturando as ferramentas:
+
+- **Preparar e compilar:** configuração de empresa, servidor e Wi-Fi, teste de conexão, compilação, limpeza e histórico.
+- **Gravação USB:** resumo do destino selecionado, seleção da porta, gravação e acesso ao monitor. **Alterar configuração** retorna à primeira seção.
+- **Arquivos:** artefatos, cópia, exportação, SHA-256, scripts e pacote ZIP.
+- **Terminais:** log de compilação e monitor serial, separados ou lado a lado, com opção de ampliar.
+
+Iniciar uma compilação ou abrir o monitor leva à seção de terminais. Trocar de seção preserva o perfil, a conexão e os históricos. Os logs usam barras de rolagem desenhadas pelo Studio e os seletores e caixas de seleção têm contornos próprios no tema escuro. A rolagem automática continua opcional.

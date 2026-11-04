@@ -69,6 +69,11 @@ class ProfilesTests {
    if(args.Contains("--preview")){form.Text="Studio - revisão visual isolada";Application.Run(form);}
    form.Size=new System.Drawing.Size(1150,900);Application.DoEvents();
    using(var screenshot=new System.Drawing.Bitmap(form.Width,form.Height)){form.DrawToBitmap(screenshot,new System.Drawing.Rectangle(0,0,form.Width,form.Height));screenshot.Save(Path.Combine(folder,"usb-preview.png"));}
+   var workspace=Field<TabControl>(form,"compilationSections");
+   for(int section=0;section<workspace.TabCount;section++){
+    workspace.SelectedIndex=section;Application.DoEvents();
+    using(var screenshot=new System.Drawing.Bitmap(form.Width,form.Height)){form.DrawToBitmap(screenshot,new System.Drawing.Rectangle(0,0,form.Width,form.Height));screenshot.Save(Path.Combine(folder,"workspace-"+section+".png"));}
+   }
    Check(Field<Button>(form,"usbUploadButton").Width>120,"USB button is clipped");
    Check(Field<TextBox>(form,"logBox").Height>=60,"USB controls hid the process log");
    form.Hide();

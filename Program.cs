@@ -263,6 +263,9 @@ namespace SentinelaFirmwareStudio
         const int EmGetFirstVisibleLine = 0x00CE, EmLineScroll = 0x00B6;
         readonly TextBox textBox; readonly ModernScrollBar vertical = new ModernScrollBar(); readonly ModernScrollBar horizontal = new ModernScrollBar { Horizontal = true }; bool syncing; int horizontalPosition;
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        bool followTail = true;
+        public bool FollowTail { get { return followTail; } set { followTail=value; } }
+        public void SyncScrollBars(bool followEnd) { UpdateBars(followEnd); }
         public ModernTextHost(TextBox target, Color accent)
         {
             textBox = target; Dock = DockStyle.Fill; Margin = Padding.Empty; Padding = Padding.Empty; ColumnCount = 2; RowCount = 2; BackColor = Color.FromArgb(4, 20, 36);
@@ -273,7 +276,7 @@ namespace SentinelaFirmwareStudio
             vertical.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); int delta = vertical.Value - current; if (delta != 0) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(delta)); };
             horizontal.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int delta = horizontal.Value - horizontalPosition; if (delta != 0) { SendMessage(textBox.Handle, EmLineScroll, new IntPtr(delta), IntPtr.Zero); horizontalPosition = horizontal.Value; } };
             textBox.MouseWheel += delegate(object sender, MouseEventArgs e) { vertical.Value -= Math.Sign(e.Delta) * 3; };
-            textBox.TextChanged += delegate { UpdateBars(true); }; textBox.Resize += delegate { UpdateBars(false); }; Resize += delegate { UpdateBars(false); };
+            textBox.TextChanged += delegate { UpdateBars(FollowTail); }; textBox.Resize += delegate { UpdateBars(false); }; Resize += delegate { UpdateBars(false); };
         }
         protected override void OnPaintBackground(PaintEventArgs e)
         {
@@ -283,7 +286,7 @@ namespace SentinelaFirmwareStudio
         void UpdateBars(bool followEnd)
         {
             if (!textBox.IsHandleCreated) return; syncing = true;
-            try { int lines = Math.Max(1, textBox.Lines.Length), visible = Math.Max(1, textBox.ClientSize.Height / Math.Max(1, textBox.Font.Height)); vertical.Maximum = Math.Max(0, lines - visible); vertical.LargeChange = visible; vertical.Visible = vertical.Maximum > 0; ColumnStyles[1].Width = vertical.Visible ? 13 : 0; if (followEnd) { vertical.Value = vertical.Maximum; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); if (vertical.Maximum > current) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(vertical.Maximum - current)); } int longest = textBox.Lines.Length == 0 ? 0 : textBox.Lines.Max(x => x.Length); int visibleChars = Math.Max(1, textBox.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", textBox.Font).Width)); horizontal.Maximum = Math.Max(0, longest - visibleChars); horizontal.LargeChange = visibleChars; horizontal.Visible = horizontal.Maximum > 0; RowStyles[1].Height = horizontal.Visible ? 13 : 0; horizontalPosition = Math.Min(horizontalPosition, horizontal.Maximum); horizontal.Value = horizontalPosition; }
+            try { int lines = Math.Max(1, textBox.Lines.Length), visible = Math.Max(1, textBox.ClientSize.Height / Math.Max(1, textBox.Font.Height)); vertical.Maximum = Math.Max(0, lines - visible); vertical.LargeChange = visible; vertical.Visible = vertical.Maximum > 0; ColumnStyles[1].Width = vertical.Visible ? 13 : 0; if (followEnd) { vertical.Value = vertical.Maximum; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); if (vertical.Maximum > current) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(vertical.Maximum - current)); } else vertical.Value=Math.Min(vertical.Maximum,(int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero)); int longest = textBox.Lines.Length == 0 ? 0 : textBox.Lines.Max(x => x.Length); int visibleChars = Math.Max(1, textBox.ClientSize.Width / Math.Max(1, TextRenderer.MeasureText("M", textBox.Font).Width)); horizontal.Maximum = Math.Max(0, longest - visibleChars); horizontal.LargeChange = visibleChars; horizontal.Visible = horizontal.Maximum > 0; RowStyles[1].Height = horizontal.Visible ? 13 : 0; horizontalPosition = Math.Min(horizontalPosition, horizontal.Maximum); horizontal.Value = horizontalPosition; }
             finally { syncing = false; }
         }
     }
@@ -601,7 +604,6 @@ namespace SentinelaFirmwareStudio
             configurationTab.Controls.Add(configurationLayout);
 
             var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(0, 740), RowCount = 4, ColumnCount = 1 };
-            compilationTab.SizeChanged += delegate { compilationLayout.MinimumSize = new Size(0, Math.Max(740, compilationTab.ClientSize.Height - compilationTab.Padding.Vertical)); };
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -886,6 +888,7 @@ namespace SentinelaFirmwareStudio
             RefreshProfileLanguage();
             RefreshUsbLanguage();
             RefreshMonitorControls();
+            RefreshCompilationWorkspace();
         }
 
         void SetLocalizedTooltip(Control control, string portugueseKey)
@@ -933,6 +936,7 @@ namespace SentinelaFirmwareStudio
             projects.Invalidate();
             if (mainTabs != null) mainTabs.Invalidate();
             RebuildProjectCards();
+            RefreshCompilationWorkspace();
             ApplyWindowsTitleBar(accent);
         }
 
@@ -961,12 +965,14 @@ namespace SentinelaFirmwareStudio
                 {
                     control.BackColor = Color.FromArgb(9, 38, 57);
                     control.ForeColor = Color.FromArgb(225, 237, 244);
+                    var check=control as ProfileCheckBox;if(check!=null)check.OutlineColor=Darken(accent,.35F);
                     control.Invalidate();
                 }
                 else if (control is TextBox)
                 {
                     var text = (TextBox)control;
-                    if (text != logBox) { text.BackColor = Color.FromArgb(13, 48, 68); text.ForeColor = Color.White; text.BorderStyle = BorderStyle.FixedSingle; }
+                    text.BorderStyle = BorderStyle.None;
+                    if (text != logBox && text != monitorBox) { text.BackColor = Color.FromArgb(13, 48, 68); text.ForeColor = Color.White; }
                 }
                 else if (control is ModernScrollBar)
                 {
@@ -975,6 +981,7 @@ namespace SentinelaFirmwareStudio
                 else if (control is ComboBox)
                 {
                     control.BackColor = Color.FromArgb(13, 48, 68); control.ForeColor = Color.White;
+                    var combo=control as ReadableSerialCombo;if(combo!=null) { combo.OutlineColor=Darken(accent,.35F);combo.Invalidate(); }
                 }
                 else if (control is Label || control is GroupBox)
                 {
@@ -1817,6 +1824,7 @@ namespace SentinelaFirmwareStudio
 
         void RefreshArtifacts()
         {
+            UpdateCompilationSummary();
             string previous = SelectedArtifact;
             artifactBox.Items.Clear();
             string build = !File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json")) ? Path.Combine(folderBox.Text, ".pio", "build") : VerifiedProfileArtifacts();

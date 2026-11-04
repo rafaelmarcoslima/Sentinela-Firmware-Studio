@@ -24,3 +24,5 @@ Desktop.ini
 
 # Configuração local do aplicativo
 projects.xml
+
+.tests-output/

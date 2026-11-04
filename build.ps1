@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
     [string]$Version
 )
@@ -56,7 +56,9 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
     /reference:System.IO.Compression.FileSystem.dll `
     /reference:System.Windows.Forms.dll `
     /reference:System.Xml.dll `
-    $sourceFile
+    /reference:System.Security.dll `
+    /reference:System.Web.Extensions.dll `
+    $sourceFile (Join-Path $projectRoot 'Profiles.cs') (Join-Path $projectRoot 'UsbUpload.cs')
 
 if ($LASTEXITCODE -ne 0) {
     throw "Falha ao compilar o Sentinela Firmware Studio."

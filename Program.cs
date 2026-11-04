@@ -21,6 +21,13 @@ namespace SentinelaFirmwareStudio
     public static class I18n
     {
         public static string Language = "pt";
+        static I18n() {
+            English["Credencial indisponível. Informe-a novamente neste usuário do Windows."] = "Credential unavailable. Enter it again for this Windows user.";
+            Spanish["Credencial indisponível. Informe-a novamente neste usuário do Windows."] = "Credencial no disponible. Introdúzcala de nuevo para este usuario de Windows.";
+            English["URL HTTP/HTTPS inválida: não informe credenciais ou parâmetros."] = "Invalid HTTP/HTTPS URL: do not include credentials or parameters.";
+            Spanish["URL HTTP/HTTPS inválida: não informe credenciais ou parâmetros."] = "URL HTTP/HTTPS inválida: no incluya credenciales ni parámetros.";
+            English["URL muito longa."] = "URL is too long."; Spanish["URL muito longa."] = "La URL es demasiado larga.";
+        }
         static readonly Dictionary<string, string> English = new Dictionary<string, string>
         {
             { "Sentinela Firmware Studio", "Sentinela Firmware Studio" }, { "PROJETOS SALVOS", "SAVED PROJECTS" },
@@ -165,6 +172,15 @@ namespace SentinelaFirmwareStudio
         public string PlatformIoPath { get; set; }
         public string IconPath { get; set; }
         public bool IsFavorite { get; set; }
+        public string CompanyId { get; set; }
+        public string ServerId { get; set; }
+        public string WifiId { get; set; }
+        public string WifiMode { get; set; }
+        public bool InheritProfile { get; set; }
+        public bool AdoptLegacy { get; set; }
+        public string LastArtifactDirectory { get; set; }
+        public string LastProfileFingerprint { get; set; }
+        public string LastArtifactHash { get; set; }
         public override string ToString() { return Name; }
     }
 
@@ -179,6 +195,9 @@ namespace SentinelaFirmwareStudio
     public class BuildHistoryEntry
     {
         public string Project { get; set; }
+        public string CompanyId { get; set; }
+        public string Server { get; set; }
+        public string ProfileFingerprint { get; set; }
         public string Date { get; set; }
         public string Result { get; set; }
         public string Duration { get; set; }
@@ -191,12 +210,15 @@ namespace SentinelaFirmwareStudio
     public class AppSettings
     {
         public List<FirmwareProject> Projects { get; set; }
+        public List<CompanyProfile> Companies { get; set; }
+        public List<ServerProfile> Servers { get; set; }
+        public List<WifiProfile> WifiNetworks { get; set; }
         public List<BuildHistoryEntry> BuildHistory { get; set; }
         public string ThemeName { get; set; }
         public string Language { get; set; }
         public bool SidebarCollapsed { get; set; }
         public DateTime UpdateDeferredUntilUtc { get; set; }
-        public AppSettings() { Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; Language = "pt"; }
+        public AppSettings() { Companies = new List<CompanyProfile>(); Servers = new List<ServerProfile>(); WifiNetworks = new List<WifiProfile>(); Projects = new List<FirmwareProject>(); BuildHistory = new List<BuildHistoryEntry>(); ThemeName = "Azul"; Language = "pt"; }
     }
 
     public sealed class GradientPanel : Panel
@@ -245,12 +267,18 @@ namespace SentinelaFirmwareStudio
         {
             textBox = target; Dock = DockStyle.Fill; Margin = Padding.Empty; Padding = Padding.Empty; ColumnCount = 2; RowCount = 2; BackColor = Color.FromArgb(4, 20, 36);
             ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 13)); RowStyles.Add(new RowStyle(SizeType.Percent, 100)); RowStyles.Add(new RowStyle(SizeType.Absolute, 13));
+            textBox.BorderStyle = BorderStyle.None; Padding = new Padding(1);
             textBox.Dock = DockStyle.Fill; textBox.ScrollBars = ScrollBars.None; vertical.Dock = DockStyle.Fill; horizontal.Dock = DockStyle.Fill; vertical.AccentColor = horizontal.AccentColor = accent;
             Controls.Add(textBox, 0, 0); Controls.Add(vertical, 1, 0); Controls.Add(horizontal, 0, 1); Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(4, 20, 36) }, 1, 1);
             vertical.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int current = (int)SendMessage(textBox.Handle, EmGetFirstVisibleLine, IntPtr.Zero, IntPtr.Zero); int delta = vertical.Value - current; if (delta != 0) SendMessage(textBox.Handle, EmLineScroll, IntPtr.Zero, new IntPtr(delta)); };
             horizontal.ValueChanged += delegate { if (syncing || !textBox.IsHandleCreated) return; int delta = horizontal.Value - horizontalPosition; if (delta != 0) { SendMessage(textBox.Handle, EmLineScroll, new IntPtr(delta), IntPtr.Zero); horizontalPosition = horizontal.Value; } };
             textBox.MouseWheel += delegate(object sender, MouseEventArgs e) { vertical.Value -= Math.Sign(e.Delta) * 3; };
             textBox.TextChanged += delegate { UpdateBars(true); }; textBox.Resize += delegate { UpdateBars(false); }; Resize += delegate { UpdateBars(false); };
+        }
+        protected override void OnPaintBackground(PaintEventArgs e)
+        {
+            base.OnPaintBackground(e);
+            if (Width > 1 && Height > 1) using (var pen = new Pen(vertical.AccentColor)) e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
         }
         void UpdateBars(bool followEnd)
         {
@@ -345,7 +373,7 @@ namespace SentinelaFirmwareStudio
             foreach (var theme in themes)
             {
                 string name = theme.Key;
-                var colorButton = new Button { Width = 46, Height = 46, BackColor = theme.Value, FlatStyle = FlatStyle.Flat, Margin = new Padding(7), TabStop = false };
+                var colorButton = new ProfileButton { Width = 46, Height = 46, BackColor = theme.Value, FlatStyle = FlatStyle.Flat, Margin = new Padding(7), TabStop = false };
                 colorButton.FlatAppearance.BorderSize = name == currentTheme ? 4 : 1;
                 colorButton.FlatAppearance.BorderColor = name == currentTheme ? Color.White : Color.FromArgb(84, 116, 134);
                 var path = new GraphicsPath();
@@ -361,13 +389,13 @@ namespace SentinelaFirmwareStudio
             languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
             languagePanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             languagePanel.Controls.Add(new Label { Text = I18n.T("Idioma da interface"), AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            var languageBox = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            var languageBox = new ProfileComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             languageBox.BackColor = Color.FromArgb(13, 48, 68); languageBox.ForeColor = Color.White;
             languageBox.Items.AddRange(new object[] { "Português", "English", "Español" });
             languageBox.SelectedIndex = currentLanguage == "en" ? 1 : currentLanguage == "es" ? 2 : 0;
             languageBox.SelectedIndexChanged += delegate { SelectedLanguage = languageBox.SelectedIndex == 1 ? "en" : languageBox.SelectedIndex == 2 ? "es" : "pt"; };
             languagePanel.Controls.Add(languageBox, 1, 0);
-            var saveButton = new Button { Text = I18n.T("Salvar configuração"), AutoSize = true, Height = 32, Anchor = AnchorStyles.None };
+            var saveButton = new ProfileButton { Text = I18n.T("Salvar configuração"), AutoSize = true, Height = 32, Anchor = AnchorStyles.None };
             saveButton.FlatStyle = FlatStyle.Flat; saveButton.BackColor = Color.FromArgb(0, 120, 215); saveButton.ForeColor = Color.White; saveButton.FlatAppearance.BorderSize = 0;
             saveButton.Click += delegate { DialogResult = DialogResult.OK; Close(); };
             var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
@@ -392,9 +420,9 @@ namespace SentinelaFirmwareStudio
         }
     }
 
-    public class MainForm : Form
+    public partial class MainForm : Form
     {
-        const string AppVersion = "1.1.4";
+        const string AppVersion = "1.2.0";
         const string UpdateAssetName = "SentinelaFirmwareStudio.exe";
         const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
         const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";
@@ -408,22 +436,22 @@ namespace SentinelaFirmwareStudio
         TextBox nameBox = new TextBox();
         TextBox folderBox = new TextBox();
         TextBox platformIoBox = new TextBox();
-        ComboBox environmentBox = new ComboBox();
-        ComboBox artifactBox = new ComboBox();
+        ComboBox environmentBox = new ProfileComboBox();
+        ComboBox artifactBox = new ProfileComboBox();
         TextBox logBox = new TextBox();
         Label statusLabel = new Label();
         Label hashLabel = new Label();
-        Button buildButton = new Button();
-        Button cleanBuildButton = new Button();
-        Button addProjectButton = new Button();
-        Button removeProjectButton = new Button();
-        Button browseProjectButton = new Button();
-        Button browsePlatformIoButton = new Button();
-        Button detectEnvironmentButton = new Button();
-        Button newManualButton = new Button();
-        Button editConfigButton = new Button();
-        Button saveConfigButton = new Button();
-        Button cancelEditButton = new Button();
+        Button buildButton = new ProfileButton();
+        Button cleanBuildButton = new ProfileButton();
+        Button addProjectButton = new ProfileButton();
+        Button removeProjectButton = new ProfileButton();
+        Button browseProjectButton = new ProfileButton();
+        Button browsePlatformIoButton = new ProfileButton();
+        Button detectEnvironmentButton = new ProfileButton();
+        Button newManualButton = new ProfileButton();
+        Button editConfigButton = new ProfileButton();
+        Button saveConfigButton = new ProfileButton();
+        Button cancelEditButton = new ProfileButton();
         bool editingConfiguration;
         bool singleEnvironmentDetected;
         bool creatingManualProject;
@@ -462,13 +490,14 @@ namespace SentinelaFirmwareStudio
             { "Grafite", Color.FromArgb(69, 90, 100) }
         };
 
-        public MainForm()
+        public MainForm(string profileStore = null)
         {
             Text = "Sentinela Firmware Studio";
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             Width = 1050;
-            Height = 700;
-            MinimumSize = new Size(900, 600);
+            if (profileStore != null) settingsFolder = Path.GetFullPath(profileStore);
+            Height = Math.Min(920, Screen.PrimaryScreen.WorkingArea.Height - 35);
+            MinimumSize = new Size(1000, 760);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 9F);
             BuildUi();
@@ -494,7 +523,7 @@ namespace SentinelaFirmwareStudio
             sidebarLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             sidebarLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
             var brand = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            sidebarToggleButton = new Button { Width = 58, Height = 58, Left = 0, Top = 0, FlatStyle = FlatStyle.Flat, TabStop = false, Cursor = Cursors.Hand };
+            sidebarToggleButton = new ProfileButton { Width = 58, Height = 58, Left = 0, Top = 0, FlatStyle = FlatStyle.Flat, TabStop = false, Cursor = Cursors.Hand };
             sidebarToggleButton.FlatAppearance.BorderSize = 0;
             sidebarToggleButton.Image = CreateApplicationIcon(48);
             sidebarToggleButton.ImageAlign = ContentAlignment.MiddleCenter;
@@ -563,7 +592,7 @@ namespace SentinelaFirmwareStudio
 
             mainTabs = new TabControl { Visible = false };
             configurationTab = new Panel { Padding = new Padding(10), BackColor = BackColor };
-            compilationTab = new Panel { Padding = new Padding(14), BackColor = BackColor, Dock = DockStyle.Fill, Margin = Padding.Empty };
+            compilationTab = new Panel { Padding = new Padding(14), BackColor = BackColor, Dock = DockStyle.Fill, Margin = Padding.Empty, AutoScroll = true };
             rightHost.Controls.Add(compilationTab, 0, 0);
 
             var configurationLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 7, ColumnCount = 1 };
@@ -571,7 +600,9 @@ namespace SentinelaFirmwareStudio
             configurationLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             configurationTab.Controls.Add(configurationLayout);
 
-            var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1 };
+            var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Top, Height = 740, RowCount = 4, ColumnCount = 1 };
+            compilationTab.SizeChanged += delegate { compilationLayout.Height = Math.Max(740, compilationTab.ClientSize.Height - compilationTab.Padding.Vertical); };
+            compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -598,7 +629,7 @@ namespace SentinelaFirmwareStudio
             detectEnvironmentButton = MakeButton("Detectar", delegate { DetectEnvironments(); });
             configurationLayout.Controls.Add(FieldRow("Ambiente", environmentBox, detectEnvironmentButton), 0, 4);
 
-            var artifactsGroup = new Panel { Dock = DockStyle.Fill, AutoSize = false, Height = 165, MinimumSize = new Size(0, 165), MaximumSize = new Size(0, 165), Padding = new Padding(12, 36, 12, 12), Margin = new Padding(0, 0, 0, 8) };
+            var artifactsGroup = new Panel { Dock = DockStyle.Fill, AutoSize = false, Height = 215, MinimumSize = new Size(0, 215), MaximumSize = new Size(0, 215), Padding = new Padding(12, 36, 12, 12), Margin = new Padding(0, 0, 0, 8) };
             artifactsGroup.Controls.Add(new Label { Text = "ARQUIVOS GERADOS E EXPORTAÇÃO", Dock = DockStyle.Top, Height = 30, Top = 0, Font = new Font(Font, FontStyle.Bold), ForeColor = Color.White });
             var artifactsLayout = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = false, RowCount = 3, ColumnCount = 3, Padding = new Padding(0, 0, 0, 6) };
             artifactsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
@@ -647,6 +678,7 @@ namespace SentinelaFirmwareStudio
             actions.Controls.Add(MakeButton("Criar pacote ZIP", delegate { CreateFirmwarePackage(); }));
             actions.Controls.Add(MakeButton("Histórico", delegate { ShowBuildHistory(); }));
             compilationLayout.Controls.Add(actions, 0, 1);
+            compilationLayout.Controls.Add(CreateUsbUploadPanel(), 0, 2);
 
             var configurationFolderActions = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 43, Padding = new Padding(112, 5, 0, 3) };
             configurationFolderActions.Controls.Add(MakeButton("Abrir pasta", delegate { OpenProjectFolder(); }));
@@ -660,7 +692,7 @@ namespace SentinelaFirmwareStudio
             logBox.Font = new Font("Consolas", 9F);
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
-            compilationLayout.Controls.Add(new ModernTextHost(logBox, currentAccent), 0, 2);
+            compilationLayout.Controls.Add(new ModernTextHost(logBox, currentAccent), 0, 3);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
             statusLabel.Text = "Pronto";
@@ -672,11 +704,12 @@ namespace SentinelaFirmwareStudio
             footer.Controls.Add(hashLabel, 0, 1);
             rightHost.Controls.Add(footer, 0, 1);
             SetConfigurationEditMode(false);
+            InitializeProfilesUi(rightHost, compilationLayout);
         }
 
         Button MakeButton(string text, EventHandler click)
         {
-            var button = new Button { Text = text, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
+            var button = new ProfileButton { Text = text, AutoSize = true, MinimumSize = new Size(0, 32), Margin = new Padding(3), Font = this.Font, FlatStyle = FlatStyle.Flat, ImageAlign = ContentAlignment.MiddleLeft, TextImageRelation = TextImageRelation.ImageBeforeText };
             buttonKeys[button] = text;
             button.Image = CreateButtonIcon(GetButtonGlyph(text));
             buttonTooltips.SetToolTip(button, I18n.T(GetButtonTooltip(text)));
@@ -686,7 +719,7 @@ namespace SentinelaFirmwareStudio
 
         Button MakeHelpButton(string title, string explanation)
         {
-            var button = new Button { Text = "?", Width = 28, Height = 28, MinimumSize = new Size(28, 28), Margin = new Padding(3), Font = new Font(this.Font, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Tag = "help" };
+            var button = new ProfileButton { Text = "?", Width = 28, Height = 28, MinimumSize = new Size(28, 28), Margin = new Padding(3), Font = new Font(this.Font, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Tag = "help" };
             SetLocalizedTooltip(button, "Clique para entender: " + title);
             button.Click += delegate { MessageBox.Show(I18n.T(explanation), I18n.T(title), MessageBoxButtons.OK, MessageBoxIcon.Information); };
             return button;
@@ -850,6 +883,8 @@ namespace SentinelaFirmwareStudio
             foreach (var pair in tooltipKeys) buttonTooltips.SetToolTip(pair.Key, TranslateTooltipKey(pair.Value));
             statusLabel.Text = I18n.T("Pronto");
             ApplySidebarState();
+            RefreshProfileLanguage();
+            RefreshUsbLanguage();
         }
 
         void SetLocalizedTooltip(Control control, string portugueseKey)
@@ -874,6 +909,8 @@ namespace SentinelaFirmwareStudio
             Color accent;
             if (!themes.TryGetValue(settings.ThemeName ?? "Azul", out accent)) accent = themes["Azul"];
             currentAccent = accent;
+            var profileTabs = mainTabs as ProfileTabs;
+            if (profileTabs != null) profileTabs.SetPalette(Color.FromArgb(9, 38, 57), Darken(accent, 0.35F), accent);
             BackColor = Color.FromArgb(5, 22, 38);
             if (configurationTab != null) configurationTab.BackColor = Color.FromArgb(9, 38, 57);
             if (compilationTab != null) compilationTab.BackColor = Color.FromArgb(9, 38, 57);
@@ -919,6 +956,12 @@ namespace SentinelaFirmwareStudio
                     button.FlatAppearance.MouseOverBackColor = BlendWithWhite(accent, 0.18F);
                     button.FlatAppearance.MouseDownBackColor = BlendWithWhite(accent, 0.32F);
                 }
+                else if (control is CheckBox)
+                {
+                    control.BackColor = Color.FromArgb(9, 38, 57);
+                    control.ForeColor = Color.FromArgb(225, 237, 244);
+                    control.Invalidate();
+                }
                 else if (control is TextBox)
                 {
                     var text = (TextBox)control;
@@ -935,6 +978,8 @@ namespace SentinelaFirmwareStudio
                 else if (control is Label || control is GroupBox)
                 {
                     if (control.Parent != modernHeader && !IsInsideHeader(control)) control.ForeColor = Color.FromArgb(225, 237, 244);
+                    var profileGroup = control as ProfileGroupBox;
+                    if (profileGroup != null) { profileGroup.BackColor = Color.FromArgb(9, 38, 57); profileGroup.FrameColor = Darken(accent, 0.35F); profileGroup.Invalidate(); }
                 }
                 else if (control is Panel || control is TableLayoutPanel || control is FlowLayoutPanel || control is TabPage)
                 {
@@ -1091,7 +1136,7 @@ namespace SentinelaFirmwareStudio
                 {
                     var title = new Label { Text = (project.IsFavorite ? "★  " : "") + project.Name, AutoEllipsis = true, Left = 52, Top = 12, Width = Math.Max(90, card.Width - 86), Height = 20, ForeColor = Color.White, Font = new Font(Font, FontStyle.Bold), BackColor = Color.Transparent, Tag = project };
                     var sub = new Label { Text = string.IsNullOrWhiteSpace(project.Environment) ? "PlatformIO" : project.Environment, AutoEllipsis = true, Left = 52, Top = 35, Width = Math.Max(90, card.Width - 86), Height = 18, ForeColor = Color.FromArgb(176, 205, 222), BackColor = Color.Transparent, Tag = project };
-                    var menu = new Button { Text = "•••", Width = 30, Height = 30, Left = card.Width - 34, Top = 17, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.Transparent, Tag = project, Cursor = Cursors.Hand };
+                    var menu = new ProfileButton { Text = "•••", Width = 30, Height = 30, Left = card.Width - 34, Top = 17, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.Transparent, Tag = project, Cursor = Cursors.Hand };
                     menu.FlatAppearance.BorderSize = 0;
                     menu.Click += delegate(object sender, EventArgs e) { ShowProjectMenu((Button)sender, project); };
                     card.Controls.Add(title); card.Controls.Add(sub); card.Controls.Add(menu);
@@ -1277,6 +1322,7 @@ namespace SentinelaFirmwareStudio
                 }
             }
             catch (Exception ex) { MessageBox.Show("Não foi possível carregar os projetos: " + ex.Message); }
+            RefreshProfileData();
             if (settings.Projects == null) settings.Projects = new List<FirmwareProject>();
             if (settings.BuildHistory == null) settings.BuildHistory = new List<BuildHistoryEntry>();
             sidebarCollapsed = settings.SidebarCollapsed;
@@ -1328,6 +1374,7 @@ namespace SentinelaFirmwareStudio
             platformIoBox.Text = project.PlatformIoPath;
             environmentBox.Text = string.IsNullOrWhiteSpace(project.Environment) ? "esp32dev" : project.Environment;
             DetectEnvironments(false);
+            RefreshProfileData();
             RefreshArtifacts();
             statusLabel.Text = L("Projeto selecionado: ", "Selected project: ", "Proyecto seleccionado: ") + project.Name;
             if (headerProjectTitle != null) headerProjectTitle.Text = project.Name;
@@ -1360,7 +1407,7 @@ namespace SentinelaFirmwareStudio
             var n = new TextBox { Text = source == null ? "" : source.Name, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
             var f = new TextBox { Text = source == null ? "" : source.Folder, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
             var p = new TextBox { Text = source == null ? DefaultPlatformIo() : source.PlatformIoPath, Dock = DockStyle.Fill, Margin = new Padding(3, 10, 3, 10) };
-            var env = new ComboBox { Text = source == null ? "" : source.Environment, Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown, Margin = new Padding(3, 10, 3, 10) };
+            var env = new ProfileComboBox { Text = source == null ? "" : source.Environment, Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown, Margin = new Padding(3, 10, 3, 10) };
             string selectedIconPath = source == null ? "" : source.IconPath;
             var preview = new PictureBox { Width = 48, Height = 48, SizeMode = PictureBoxSizeMode.CenterImage, Image = CreateProjectIcon(source, 42), BackColor = Color.Transparent, Margin = new Padding(3) };
             Action<Control, int> addLabel = delegate(Control control, int row) { fields.Controls.Add(control, 0, row); };
@@ -1413,7 +1460,7 @@ namespace SentinelaFirmwareStudio
 
         Button MakeModernDialogButton(string text, int width)
         {
-            var button = new Button { Text = text, Width = width, Height = 36, Margin = new Padding(4), BackColor = Color.FromArgb(20, 65, 94), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 9F) };
+            var button = new ProfileButton { Text = text, Width = width, Height = 36, Margin = new Padding(4), BackColor = Color.FromArgb(20, 65, 94), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 9F) };
             button.FlatAppearance.BorderSize = 0; button.FlatAppearance.MouseOverBackColor = currentAccent; return button;
         }
 
@@ -1435,7 +1482,7 @@ namespace SentinelaFirmwareStudio
                 var title = new Label { Text = L("Escolha um ícone", "Choose an icon", "Elija un icono"), Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 18, 0, 0), Font = new Font("Segoe UI Semibold", 13F), ForeColor = Color.White };
                 var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, RowCount = 4, Padding = new Padding(18), BackColor = Color.FromArgb(10, 38, 59) };
                 for (int i = 0; i < 6; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.666F)); for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
-                for (int i = 0; i < glyphs.Length; i++) { string glyph = glyphs[i]; var button = new Button { Dock = DockStyle.Fill, Margin = new Padding(7), Image = CreateGlyphIcon(glyph, 48), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(20, 65, 94), Cursor = Cursors.Hand }; button.FlatAppearance.BorderSize = 0; button.Click += delegate { selected = glyph; dialog.DialogResult = DialogResult.OK; dialog.Close(); }; grid.Controls.Add(button, i % 6, i / 6); }
+                for (int i = 0; i < glyphs.Length; i++) { string glyph = glyphs[i]; var button = new ProfileButton { Dock = DockStyle.Fill, Margin = new Padding(7), Image = CreateGlyphIcon(glyph, 48), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(20, 65, 94), Cursor = Cursors.Hand }; button.FlatAppearance.BorderSize = 0; button.Click += delegate { selected = glyph; dialog.DialogResult = DialogResult.OK; dialog.Close(); }; grid.Controls.Add(button, i % 6, i / 6); }
                 dialog.Controls.Add(grid); dialog.Controls.Add(title); dialog.ShowDialog(owner);
             }
             return selected;
@@ -1476,6 +1523,7 @@ namespace SentinelaFirmwareStudio
             removeProjectButton.Enabled = hasProject && !editingConfiguration;
             buildButton.Enabled = hasProject && !editingConfiguration;
             cleanBuildButton.Enabled = hasProject && !editingConfiguration;
+            UpdateUsbControls(activeProcess != null);
             environmentBox.Enabled = hasEditableTarget && !singleEnvironmentDetected;
             detectEnvironmentButton.Enabled = hasEditableTarget;
         }
@@ -1485,7 +1533,7 @@ namespace SentinelaFirmwareStudio
             logBox.Clear();
             artifactBox.Items.Clear();
             hashLabel.Text = "SHA-256: —";
-            statusLabel.ForeColor = themes.ContainsKey(settings.ThemeName ?? "") ? themes[settings.ThemeName] : themes["Azul"];
+            statusLabel.ForeColor = Color.FromArgb(174, 205, 222);
             statusLabel.Text = L("Selecione ou compile um projeto", "Select or build a project", "Seleccione o compile un proyecto");
         }
 
@@ -1532,7 +1580,7 @@ namespace SentinelaFirmwareStudio
             if (!Directory.Exists(folderBox.Text.Trim())) { MessageBox.Show(I18n.T("A pasta do projeto não existe.")); folderBox.Focus(); return; }
             if (!File.Exists(Path.Combine(folderBox.Text.Trim(), "platformio.ini"))) { MessageBox.Show(I18n.T("A pasta selecionada não contém platformio.ini.")); folderBox.Focus(); return; }
             if (!File.Exists(platformIoBox.Text.Trim())) { MessageBox.Show(I18n.T("O executável do PlatformIO não foi encontrado.")); platformIoBox.Focus(); return; }
-            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show(I18n.T("Informe ou detecte um ambiente PlatformIO.")); environmentBox.Focus(); return; }
+            if (!Regex.IsMatch(environmentBox.Text, "^[A-Za-z0-9_-]{1,80}$")) { MessageBox.Show(I18n.T("Informe ou detecte um ambiente PlatformIO.")); environmentBox.Focus(); return; }
             if (creatingManualProject)
             {
                 project = new FirmwareProject();
@@ -1586,20 +1634,31 @@ namespace SentinelaFirmwareStudio
             if (!Directory.Exists(folderBox.Text)) { MessageBox.Show(I18n.T("A pasta do projeto não existe.")); return false; }
             if (!File.Exists(Path.Combine(folderBox.Text, "platformio.ini"))) { MessageBox.Show(I18n.T("platformio.ini não encontrado.")); return false; }
             if (!File.Exists(platformIoBox.Text)) { MessageBox.Show(I18n.T("platformio.exe não encontrado.")); return false; }
-            if (string.IsNullOrWhiteSpace(environmentBox.Text)) { MessageBox.Show(I18n.T("Informe o ambiente PlatformIO.")); return false; }
+            if (!Regex.IsMatch(environmentBox.Text, "^[A-Za-z0-9_-]{1,80}$")) { MessageBox.Show(I18n.T("Informe o ambiente PlatformIO.")); return false; }
             return true;
         }
 
-        void StartBuild(bool cleanFirst)
+        void StartBuild(bool cleanFirst) { StartBuild(cleanFirst, null); }
+
+        void StartBuild(bool cleanFirst, string uploadPort)
         {
             if (activeProcess != null) return;
             if (!ValidateBuildInputs()) return;
+            if (uploadPort == null ? !ConfirmProfileBuild() : !ConfirmUsbUpload(uploadPort)) return;
+            if (!PrepareProfileBuild()) return;
+            usbUploadInProgress = uploadPort != null;
+            usbUploadPort = uploadPort;
             logBox.Clear();
             buildStopwatch.Restart();
             SetBusy(true);
             statusLabel.Text = cleanFirst ? L("Limpando projeto...", "Cleaning project...", "Limpiando proyecto...") : L("Compilando...", "Building...", "Compilando...");
             ShowBuildProgress(cleanFirst ? L("Limpando arquivos anteriores...", "Cleaning previous files...", "Limpiando archivos anteriores...") : L("Compilando o firmware...", "Building firmware...", "Compilando firmware..."));
-            if (cleanFirst) RunPlatformIo("run -e \"" + environmentBox.Text + "\" -t clean", delegate(bool ok) {
+            if (usbUploadInProgress) {
+                statusLabel.Text = L("Compilando e gravando USB...", "Building and flashing USB...", "Compilando y grabando USB...");
+                if (progressForm != null) { progressForm.Text = L("Gravação USB", "USB flashing", "Grabación USB"); progressForm.SetMessage(L("Compilando e gravando no ESP. Não desconecte o cabo.", "Building and flashing the ESP. Do not disconnect the cable.", "Compilando y grabando el ESP. No desconecte el cable.")); }
+                RunPlatformIo(UsbUpload.Arguments(environmentBox.Text, uploadPort), FinishBuild);
+            }
+            else if (cleanFirst) RunPlatformIo("run -e \"" + environmentBox.Text + "\" -t clean", delegate(bool ok) {
                 if (!ok) FinishBuild(false);
                 else {
                     statusLabel.Text = L("Compilando...", "Building...", "Compilando...");
@@ -1633,15 +1692,25 @@ namespace SentinelaFirmwareStudio
                 RedirectStandardError = true,
                 CreateNoWindow = true
             };
-            activeProcess = new Process { StartInfo = info, EnableRaisingEvents = true };
+            if (usbUploadInProgress) info.EnvironmentVariables["FIRMWARE_FACTORY_RESET"] = "0";
+            if (activeProfileBuild) {
+                info.EnvironmentVariables["FIRMWARE_PROFILE_FILE"] = activeProfileFile;
+                info.EnvironmentVariables["PLATFORMIO_BUILD_DIR"] = Path.Combine(activeProfileBuildRoot, "build");
+            }
+            var runningProcess = new Process { StartInfo = info, EnableRaisingEvents = true };
+            activeProcess = runningProcess;
             activeProcess.OutputDataReceived += delegate(object sender, DataReceivedEventArgs e) { if (e.Data != null) AppendLog(e.Data + Environment.NewLine); };
             activeProcess.ErrorDataReceived += delegate(object sender, DataReceivedEventArgs e) { if (e.Data != null) AppendLog(e.Data + Environment.NewLine); };
             activeProcess.Exited += delegate
             {
-                int exitCode = activeProcess.ExitCode;
-                activeProcess.Dispose();
-                activeProcess = null;
-                BeginInvoke(new Action(delegate { completed(exitCode == 0); }));
+                // Flush asynchronous output before releasing the profile or reporting success.
+                runningProcess.WaitForExit();
+                int exitCode = runningProcess.ExitCode;
+                BeginInvoke(new Action(delegate {
+                    activeProcess = null;
+                    runningProcess.Dispose();
+                    completed(exitCode == 0);
+                }));
             };
             try
             {
@@ -1652,6 +1721,7 @@ namespace SentinelaFirmwareStudio
             catch (Exception ex)
             {
                 AppendLog("ERRO: " + ex.Message + Environment.NewLine);
+                runningProcess.Dispose();
                 activeProcess = null;
                 completed(false);
             }
@@ -1659,6 +1729,10 @@ namespace SentinelaFirmwareStudio
 
         void FinishBuild(bool success)
         {
+            try {
+                if (activeProfileBuild && success && !File.Exists(Path.Combine(activeProfileBuildRoot, "build", environmentBox.Text, "firmware.bin"))) success = false;
+                FinishProfileBuild(success);
+            } catch (Exception error) { success = false; AppendLog("Falha ao finalizar artefatos: " + error.Message + Environment.NewLine); }
             buildStopwatch.Stop();
             Enabled = true;
             if (progressForm != null)
@@ -1669,7 +1743,7 @@ namespace SentinelaFirmwareStudio
             }
             Activate();
             SetBusy(false);
-            statusLabel.ForeColor = success ? Color.ForestGreen : Color.Firebrick;
+            statusLabel.ForeColor = success ? Color.FromArgb(103, 226, 172) : Color.FromArgb(255, 151, 151);
             statusLabel.Text = success ? L("Compilação concluída com sucesso", "Build completed successfully", "Compilación completada con éxito") : I18n.T("Falha na compilação");
             RefreshArtifacts();
             string firmware = GetMainFirmwarePath();
@@ -1678,6 +1752,9 @@ namespace SentinelaFirmwareStudio
             var historyEntry = new BuildHistoryEntry
             {
                 Project = SelectedProject == null ? nameBox.Text : SelectedProject.Name,
+                CompanyId = activeProfileBuild ? activeProfileCompany : "",
+                Server = activeProfileBuild ? activeProfileServer : "",
+                ProfileFingerprint = activeProfileBuild ? activeProfileFingerprint : "",
                 Date = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
                 Result = success ? "Sucesso" : "Falha",
                 Duration = buildStopwatch.Elapsed.ToString(@"mm\:ss"),
@@ -1692,13 +1769,20 @@ namespace SentinelaFirmwareStudio
             string summary = success
                 ? L("Compilação concluída com sucesso.\n\nFirmware: ", "Build completed successfully.\n\nFirmware: ", "Compilación completada con éxito.\n\nFirmware: ") + (firmware == null ? L("não localizado", "not found", "no encontrado") : Path.GetFileName(firmware)) + L("\nTamanho: ", "\nSize: ", "\nTamaño: ") + size + "\nSHA-256: " + sha + L("\nDuração: ", "\nDuration: ", "\nDuración: ") + historyEntry.Duration + L("\nData: ", "\nDate: ", "\nFecha: ") + historyEntry.Date
                 : L("A compilação falhou.\n\nDuração: ", "The build failed.\n\nDuration: ", "La compilación falló.\n\nDuración: ") + historyEntry.Duration + L("\nConsulte o log para identificar o erro.", "\nCheck the log to identify the error.", "\nConsulte el registro para identificar el error.");
-            MessageBox.Show(summary, success ? I18n.T("Compilação concluída") : I18n.T("Falha na compilação"), MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+            if (usbUploadInProgress) {
+                statusLabel.Text = success ? L("Gravação USB concluída", "USB flashing completed", "Grabación USB completada") : L("Falha na gravação USB", "USB flashing failed", "Error de grabación USB");
+                summary = (success ? L("Firmware compilado e gravado no ESP com sucesso.", "Firmware built and flashed to the ESP successfully.", "Firmware compilado y grabado en el ESP correctamente.") : L("Não foi possível concluir a gravação USB. Confira o log, a porta e o cabo. Se ficar em Connecting, mantenha BOOT pressionado até iniciar a gravação.", "USB flashing could not be completed. Check the log, port and cable. If stuck at Connecting, hold BOOT until flashing starts.", "No se pudo completar la grabación USB. Revise el registro, el puerto y el cable. Si queda en Connecting, mantenga BOOT pulsado hasta iniciar la grabación.")) + "\n\n" + usbUploadPort + "\n\n" + summary;
+            }
+            string resultTitle = usbUploadInProgress ? statusLabel.Text : (success ? I18n.T("Compilação concluída") : I18n.T("Falha na compilação"));
+            usbUploadInProgress = false; usbUploadPort = null;
+            MessageBox.Show(summary, resultTitle, MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             if (success) System.Media.SystemSounds.Asterisk.Play();
             else System.Media.SystemSounds.Hand.Play();
         }
 
         string GetMainFirmwarePath()
         {
+            if (File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json"))) { string directory = VerifiedProfileArtifacts(); return directory == null ? null : Path.Combine(directory, "firmware.bin"); }
             string candidate = Path.Combine(folderBox.Text, ".pio", "build", environmentBox.Text, "firmware.bin");
             return File.Exists(candidate) ? candidate : null;
         }
@@ -1715,12 +1799,13 @@ namespace SentinelaFirmwareStudio
             bool canBuild = !busy && !editingConfiguration && SelectedProject != null;
             buildButton.Enabled = canBuild;
             cleanBuildButton.Enabled = canBuild;
+            UpdateUsbControls(busy);
         }
 
         void AppendLog(string text)
         {
             if (InvokeRequired) { BeginInvoke(new Action<string>(AppendLog), text); return; }
-            logBox.AppendText(text);
+            logBox.AppendText(RedactProfileLog(text));
             logBox.SelectionStart = logBox.TextLength;
             logBox.ScrollToCaret();
         }
@@ -1729,7 +1814,8 @@ namespace SentinelaFirmwareStudio
         {
             string previous = SelectedArtifact;
             artifactBox.Items.Clear();
-            string build = Path.Combine(folderBox.Text, ".pio", "build");
+            string build = !File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json")) ? Path.Combine(folderBox.Text, ".pio", "build") : VerifiedProfileArtifacts();
+            if (build == null) { UpdateHash(); return; }
             if (Directory.Exists(build))
             {
                 string[] extensions = { ".bin", ".elf", ".map", ".hex" };
@@ -1826,7 +1912,7 @@ namespace SentinelaFirmwareStudio
                 MessageBox.Show(I18n.T("firmware.bin não encontrado. Compile o projeto primeiro."), I18n.T("Firmware indisponível"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            using (var dialog = new SaveFileDialog { FileName = "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
+            using (var dialog = new SaveFileDialog { FileName = File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json")) ? "firmware-" + (inheritProfileBox.Checked ? "universal" : ((CompanyProfile)companyProfileBox.SelectedItem).Id) + "-" + CalculateSha256(firmware).Substring(0, 8) + ".bin" : "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(firmware, dialog.FileName, true);
@@ -1852,6 +1938,11 @@ namespace SentinelaFirmwareStudio
                     var firmwareEntry = archive.CreateEntry("firmware.bin", CompressionLevel.Optimal);
                     using (var input = File.OpenRead(firmware))
                     using (var output = firmwareEntry.Open()) input.CopyTo(output);
+                    string profileManifest = Path.Combine(Path.GetDirectoryName(firmware), "profile-manifest.json");
+                    if (File.Exists(profileManifest)) {
+                        using (var input = File.OpenRead(profileManifest))
+                        using (var output = archive.CreateEntry("profile-manifest.json").Open()) input.CopyTo(output);
+                    }
                     string sha = CalculateSha256(firmware);
                     using (var writer = new StreamWriter(archive.CreateEntry("firmware.sha256").Open(), new UTF8Encoding(false))) writer.WriteLine(sha + "  firmware.bin");
                     using (var writer = new StreamWriter(archive.CreateEntry("informacoes.txt").Open(), new UTF8Encoding(true)))
@@ -1877,6 +1968,8 @@ namespace SentinelaFirmwareStudio
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Result", HeaderText = I18n.T("Resultado"), MinimumWidth = 80 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Duration", HeaderText = I18n.T("Duração"), MinimumWidth = 75 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwareSize", HeaderText = I18n.T("Tamanho"), MinimumWidth = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CompanyId", HeaderText = L("Empresa (ID)", "Company (ID)", "Empresa (ID)"), MinimumWidth = 150 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Server", HeaderText = L("Servidor", "Server", "Servidor"), MinimumWidth = 220 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "FirmwarePath", HeaderText = I18n.T("Caminho do firmware"), MinimumWidth = 260 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Sha256", HeaderText = "SHA-256", MinimumWidth = 300 });
             grid.DataSource = (settings.BuildHistory ?? new List<BuildHistoryEntry>()).ToList();
@@ -2056,6 +2149,7 @@ namespace SentinelaFirmwareStudio
         void ExportScript(string extension)
         {
             if (!ValidateBuildInputs()) return;
+            if (ExportProtectedProfileScript(extension)) return;
             bool powershell = extension == ".ps1";
             string filter = powershell ? "Script PowerShell (*.ps1)|*.ps1" : "Script em lote (*.bat)|*.bat";
             using (var dialog = new SaveFileDialog { FileName = "compilar-" + environmentBox.Text + extension, Filter = filter })

@@ -58,7 +58,7 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
     /reference:System.Xml.dll `
     /reference:System.Security.dll `
     /reference:System.Web.Extensions.dll `
-    $sourceFile (Join-Path $projectRoot 'Profiles.cs') (Join-Path $projectRoot 'UsbUpload.cs')
+    $sourceFile (Join-Path $projectRoot 'Profiles.cs') (Join-Path $projectRoot 'UsbUpload.cs') (Join-Path $projectRoot 'Terminals.cs')
 
 if ($LASTEXITCODE -ne 0) {
     throw "Falha ao compilar o Sentinela Firmware Studio."

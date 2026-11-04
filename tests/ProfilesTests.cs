@@ -65,6 +65,7 @@ class ProfilesTests {
    form.Show();Application.DoEvents();Check(!inherit.Visible,"Bootstrap exposes saved configuration option");
    folderInput.Text=args[0];Call(form,"SetProfileEnabled");Application.DoEvents();Check(inherit.Visible,"Operational firmware hides saved configuration option");
    inherit.Checked=true;Application.DoEvents();
+   checks+=TerminalTests.Run(form,key,password,folder);
    if(args.Contains("--preview")){form.Text="Studio - revisão visual isolada";Application.Run(form);}
    form.Size=new System.Drawing.Size(1150,900);Application.DoEvents();
    using(var screenshot=new System.Drawing.Bitmap(form.Width,form.Height)){form.DrawToBitmap(screenshot,new System.Drawing.Rectangle(0,0,form.Width,form.Height));screenshot.Save(Path.Combine(folder,"usb-preview.png"));}

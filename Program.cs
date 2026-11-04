@@ -600,8 +600,8 @@ namespace SentinelaFirmwareStudio
             configurationLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             configurationTab.Controls.Add(configurationLayout);
 
-            var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Top, Height = 740, RowCount = 4, ColumnCount = 1 };
-            compilationTab.SizeChanged += delegate { compilationLayout.Height = Math.Max(740, compilationTab.ClientSize.Height - compilationTab.Padding.Vertical); };
+            var compilationLayout = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, MinimumSize = new Size(0, 740), RowCount = 4, ColumnCount = 1 };
+            compilationTab.SizeChanged += delegate { compilationLayout.MinimumSize = new Size(0, Math.Max(740, compilationTab.ClientSize.Height - compilationTab.Padding.Vertical)); };
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             compilationLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -692,7 +692,7 @@ namespace SentinelaFirmwareStudio
             logBox.Font = new Font("Consolas", 9F);
             logBox.BackColor = Color.FromArgb(28, 31, 36);
             logBox.ForeColor = Color.Gainsboro;
-            compilationLayout.Controls.Add(new ModernTextHost(logBox, currentAccent), 0, 3);
+            compilationLayout.Controls.Add(CreateTerminalArea(), 0, 3);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true };
             statusLabel.Text = "Pronto";
@@ -885,6 +885,7 @@ namespace SentinelaFirmwareStudio
             ApplySidebarState();
             RefreshProfileLanguage();
             RefreshUsbLanguage();
+            RefreshMonitorControls();
         }
 
         void SetLocalizedTooltip(Control control, string portugueseKey)
@@ -1152,6 +1153,7 @@ namespace SentinelaFirmwareStudio
 
         void ProjectCardClick(object sender, EventArgs e)
         {
+            if (operationBusy) return;
             var control = sender as Control;
             var project = control == null ? null : control.Tag as FirmwareProject;
             if (project != null && !editingConfiguration) projects.SelectedItem = project;
@@ -1194,6 +1196,7 @@ namespace SentinelaFirmwareStudio
 
         void ShowProjectMenu(Button anchor, FirmwareProject project)
         {
+            if (operationBusy) return;
             var menu = new ContextMenuStrip { ShowImageMargin = false, BackColor = Color.FromArgb(19, 42, 59), ForeColor = Color.White, Renderer = new ToolStripProfessionalRenderer(new DarkColorTable(currentAccent)) };
             menu.Items.Add(I18n.T("Editar configuração"), null, delegate { projects.SelectedItem = project; BeginConfigurationEdit(); });
             menu.Items.Add(I18n.T("Abrir pasta"), null, delegate { projects.SelectedItem = project; OpenProjectFolder(); });
@@ -1530,7 +1533,7 @@ namespace SentinelaFirmwareStudio
 
         void ResetProjectView()
         {
-            logBox.Clear();
+            ClearBuildTerminal();
             artifactBox.Items.Clear();
             hashLabel.Text = "SHA-256: —";
             statusLabel.ForeColor = Color.FromArgb(174, 205, 222);
@@ -1640,17 +1643,21 @@ namespace SentinelaFirmwareStudio
 
         void StartBuild(bool cleanFirst) { StartBuild(cleanFirst, null); }
 
-        void StartBuild(bool cleanFirst, string uploadPort)
+        async void StartBuild(bool cleanFirst, string uploadPort)
         {
-            if (activeProcess != null) return;
+            if (activeProcess != null || operationBusy) return;
             if (!ValidateBuildInputs()) return;
             if (uploadPort == null ? !ConfirmProfileBuild() : !ConfirmUsbUpload(uploadPort)) return;
             if (!PrepareProfileBuild()) return;
             usbUploadInProgress = uploadPort != null;
             usbUploadPort = uploadPort;
-            logBox.Clear();
+            ClearBuildTerminal();
             buildStopwatch.Restart();
             SetBusy(true);
+            if (uploadPort != null) {
+                try { await SuspendMonitorForUpload(uploadPort); }
+                catch(Exception error) { AppendLog("USB: "+error.Message+Environment.NewLine);FlushTerminalViews();FinishBuild(false);return; }
+            }
             statusLabel.Text = cleanFirst ? L("Limpando projeto...", "Cleaning project...", "Limpiando proyecto...") : L("Compilando...", "Building...", "Compilando...");
             ShowBuildProgress(cleanFirst ? L("Limpando arquivos anteriores...", "Cleaning previous files...", "Limpiando archivos anteriores...") : L("Compilando o firmware...", "Building firmware...", "Compilando firmware..."));
             if (usbUploadInProgress) {
@@ -1671,16 +1678,13 @@ namespace SentinelaFirmwareStudio
 
         void ShowBuildProgress(string message)
         {
-            progressForm = new BuildProgressForm();
-            progressForm.SetMessage(message);
-            progressForm.Show(this);
-            Enabled = false;
-            progressForm.Enabled = true;
-            progressForm.BringToFront();
+            SetTerminalOperation(message, true);
+            ScrollToTerminals();
         }
 
         void RunPlatformIo(string arguments, Action<bool> completed)
         {
+            CaptureTerminalSecrets();
             AppendLog("> \"" + platformIoBox.Text + "\" " + arguments + Environment.NewLine + Environment.NewLine);
             var info = new ProcessStartInfo
             {
@@ -1709,6 +1713,7 @@ namespace SentinelaFirmwareStudio
                 BeginInvoke(new Action(delegate {
                     activeProcess = null;
                     runningProcess.Dispose();
+                    FlushTerminalViews();
                     completed(exitCode == 0);
                 }));
             };
@@ -1742,6 +1747,7 @@ namespace SentinelaFirmwareStudio
                 progressForm = null;
             }
             Activate();
+            SetTerminalOperation("", false);
             SetBusy(false);
             statusLabel.ForeColor = success ? Color.FromArgb(103, 226, 172) : Color.FromArgb(255, 151, 151);
             statusLabel.Text = success ? L("Compilação concluída com sucesso", "Build completed successfully", "Compilación completada con éxito") : I18n.T("Falha na compilação");
@@ -1775,6 +1781,7 @@ namespace SentinelaFirmwareStudio
             }
             string resultTitle = usbUploadInProgress ? statusLabel.Text : (success ? I18n.T("Compilação concluída") : I18n.T("Falha na compilação"));
             usbUploadInProgress = false; usbUploadPort = null;
+            ResumeMonitorAfterUpload();
             MessageBox.Show(summary, resultTitle, MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Error);
             if (success) System.Media.SystemSounds.Asterisk.Play();
             else System.Media.SystemSounds.Hand.Play();
@@ -1796,6 +1803,7 @@ namespace SentinelaFirmwareStudio
 
         void SetBusy(bool busy)
         {
+            LockOperationControls(busy);
             bool canBuild = !busy && !editingConfiguration && SelectedProject != null;
             buildButton.Enabled = canBuild;
             cleanBuildButton.Enabled = canBuild;
@@ -1804,10 +1812,7 @@ namespace SentinelaFirmwareStudio
 
         void AppendLog(string text)
         {
-            if (InvokeRequired) { BeginInvoke(new Action<string>(AppendLog), text); return; }
-            logBox.AppendText(RedactProfileLog(text));
-            logBox.SelectionStart = logBox.TextLength;
-            logBox.ScrollToCaret();
+            buildHistoryBuffer.Append(text);
         }
 
         void RefreshArtifacts()

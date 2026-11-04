@@ -63,3 +63,15 @@ O perfil privado continua disponível durante a gravação e é removido ao fina
 Feche monitores seriais que estejam usando a porta. Se a conexão ficar em `Connecting`, mantenha **BOOT** pressionado até a gravação iniciar. Se nenhuma porta aparecer, confira o cabo de dados e o driver USB da placa. O sucesso só é mostrado quando o processo termina sem erro; a janela de progresso e o log acompanham a operação.
 
 Os testes usam um gravador simulado e perfis fictícios; não gravam em dispositivos físicos.
+
+
+## Monitor serial e terminais ampliados
+
+- **Monitor ESP** abre o painel serial. Selecione a porta, a velocidade (115200 por padrão) e clique em **Conectar**. DTR e RTS ficam desativados; o Studio não envia reset ao conectar. Algumas placas e drivers podem reiniciar o ESP ao abrir a porta.
+- O monitor oferece conectar/desconectar, pausa da exibição, rolagem automática, limpar, copiar e salvar log. A pausa mantém a coleta dentro do limite do histórico; **Limpar** remove apenas o histórico exibido no computador.
+- Cada terminal tem **Ampliar**, abrindo uma janela redimensionável e maximizável. Selecione **Compilação**, **Monitor ESP** ou **Lado a lado**; a divisória pode ser arrastada. Fechar a janela ampliada devolve os painéis ao Studio e não interrompe a compilação ou a conexão serial.
+- A mesma conexão e os mesmos históricos são reutilizados em ambas as visualizações. Cada histórico mantém até 262144 caracteres em memória e a interface é atualizada em lotes, apenas quando há mensagens novas. Copiar e salvar exportam o histórico ainda disponível, com as credenciais conhecidas ocultadas.
+- Uma compilação comum mantém o monitor conectado. Ao gravar na mesma porta USB, o Studio aguarda o fechamento do monitor, grava e tenta reconectar após o término. **Desconectar** cancela a reconexão automática. Uma gravação em outra porta não interrompe esse monitor.
+- Durante a compilação, configurações e seleção de projeto ficam protegidas, enquanto terminais e ferramentas de visualização continuam disponíveis. Textos de orientação e status permanecem legíveis; controles seriais usam cores próprias para manter contraste mesmo desabilitados.
+
+Os testes cobrem conexão simulada, porta ocupada, pausa/retomada, histórico limitado, proteção de credenciais, janela ampliada e coordenação com a gravação USB. A comunicação com o ESP e o comportamento do driver precisam de validação física.

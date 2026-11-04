@@ -32,13 +32,16 @@ namespace SentinelaFirmwareStudio
         {
             var panel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, Padding = new Padding(0, 4, 0, 8) };
             usbPortLabel = new Label { AutoSize = true, Margin = new Padding(3, 11, 8, 3) };
-            usbPortBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Margin = new Padding(3, 7, 8, 3), AccessibleName = "Porta USB" };
+            usbPortBox = new ReadableSerialCombo { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Margin = new Padding(3, 7, 8, 3), AccessibleName = "Porta USB" };
             usbRefreshButton = MakeButton("Atualizar portas", delegate { RefreshUsbPorts(); });
             usbUploadButton = MakeButton("Compilar e gravar USB", delegate { StartUsbUpload(); });
-            usbPortBox.SelectedIndexChanged += delegate { UpdateUsbControls(activeProcess != null); };
+            usbPortBox.SelectedIndexChanged += delegate { UpdateUsbControls(activeProcess != null || operationBusy); if (monitorPortBox != null && monitorConnection == null && !monitorConnecting) RefreshMonitorPorts(); };
             usbHintLabel = new Label { AutoSize = true, Margin = new Padding(3, 8, 3, 3) };
-            panel.Controls.AddRange(new Control[] { usbPortLabel, usbPortBox, usbRefreshButton, usbUploadButton, usbHintLabel });
-            panel.SetFlowBreak(usbUploadButton, true);
+            monitorOpenButton = MakeButton("Monitor ESP", delegate { ShowMonitorView(); });
+            PText(monitorOpenButton,"Monitor ESP","ESP monitor","Monitor ESP");
+            panel.Controls.AddRange(new Control[] { usbPortLabel, usbPortBox, usbRefreshButton, usbUploadButton, monitorOpenButton, usbHintLabel });
+            foreach(var button in new[] { usbRefreshButton, usbUploadButton, monitorOpenButton })FitTerminalButton(button);
+            panel.SetFlowBreak(monitorOpenButton, true);
             RefreshUsbLanguage();
             RefreshUsbPorts();
             FormClosing += delegate(object sender, FormClosingEventArgs e) { if (activeProcess != null) e.Cancel = true; };
@@ -83,7 +86,7 @@ namespace SentinelaFirmwareStudio
         void StartUsbUpload()
         {
             string port = usbPortBox.SelectedItem as string;
-            if (activeProcess != null) return;
+            if (activeProcess != null || operationBusy) return;
             if (!UsbUpload.IsSerialPort(port) || !SerialPort.GetPortNames().Contains(port, StringComparer.OrdinalIgnoreCase)) {
                 MessageBox.Show(this, L("A porta selecionada não está disponível. Conecte o ESP e atualize as portas.", "The selected port is unavailable. Connect the ESP and refresh ports.", "El puerto seleccionado no está disponible. Conecte el ESP y actualice los puertos."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 RefreshUsbPorts(); return;

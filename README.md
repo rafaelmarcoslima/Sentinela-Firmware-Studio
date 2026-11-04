@@ -36,7 +36,7 @@ O aplicativo utiliza o compilador C# do próprio Windows e não requer o SDK do 
 - Cada empresa pode ter vários servidores e redes. Trocar empresa limpa as seleções incompatíveis. Chaves pertencem ao servidor; não são compartilhadas automaticamente entre URLs.
 - Credenciais no cadastro são protegidas com DPAPI para o usuário atual do Windows. Copiar o XML para outro usuário não transfere o acesso às senhas.
 - Testar conexão consulta o diagnóstico somente leitura: confirma API, chave e banco preparado, com data do resultado. Não registra dispositivos e não comprova conectividade a partir da rede do ESP.
-- Rede inicial do Studio aplica a rede uma vez quando seus dados mudam; os próximos reinícios preservam as alterações recebidas do sistema. Bootstrap exige uma rede inicial.
+- Rede inicial do Studio é reaplicada uma vez no primeiro boot de cada nova compilação, mesmo que SSID e senha sejam iguais aos anteriores; os próximos reinícios preservam as alterações recebidas do sistema. Bootstrap exige uma rede inicial.
 - OTA universal usa a configuração completa previamente persistida no ESP, sem identidade ou senha incorporada. Dispositivo antigo exige primeiro uma atualização de instalação com adoção explícita.
 - Uma atualização com empresa ou servidor diferentes é recusada; filas são preservadas. Não há URL/ID padrão dos projetos anteriores.
 - Compilações por perfil usam diretórios exclusivos. Exportação verifica perfil, projeto, ambiente e SHA-256, bloqueando arquivos antigos ou modificados. ZIP inclui manifesto sem credenciais.
@@ -87,3 +87,12 @@ A aba Compilação tem quatro seções internas, sem uma rolagem geral misturand
 - **Terminais:** log de compilação e monitor serial, separados ou lado a lado, com opção de ampliar.
 
 Iniciar uma compilação ou abrir o monitor leva à seção de terminais. Trocar de seção preserva o perfil, a conexão e os históricos. Os logs usam barras de rolagem desenhadas pelo Studio e os seletores e caixas de seleção têm contornos próprios no tema escuro. A rolagem automática continua opcional.
+
+
+### Reaplicar o Wi-Fi inicial
+
+Cada compilação com **Rede inicial do Studio** recebe um identificador novo de aplicação de Wi-Fi. Ao compilar e gravar novamente o bootstrap pelo Studio, o primeiro boot aplica a rede selecionada mesmo que a mesma rede já tenha sido usada numa instalação anterior. Isso preserva a NVS e as filas; não é necessário apagar a memória inteira.
+
+Após conectar, o firmware continua aceitando o Wi-Fi recebido do sistema. Essa troca pode acontecer já na primeira sincronização. Reiniciar o ESP não reaplica o Wi-Fi inicial dessa mesma compilação. Regravar exatamente o mesmo arquivo `.bin` também não cria uma identificação nova: use **Compilar e gravar USB** para gerar a nova aplicação.
+
+O monitor mostra `[PERFIL] Rede inicial do Studio aplicada nesta compilacao: <SSID>` quando essa etapa ocorre. Os scripts protegidos BAT/PS1 também geram uma identificação nova a cada execução.

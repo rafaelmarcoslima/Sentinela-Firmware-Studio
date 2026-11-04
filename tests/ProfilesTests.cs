@@ -29,6 +29,9 @@ class ProfilesTests {
    var companies=Field<ComboBox>(form,"companyProfileBox");var servers=Field<ComboBox>(form,"serverProfileBox");var networks=Field<ComboBox>(form,"wifiProfileBox");var mode=Field<ComboBox>(form,"wifiModeBox");var inherit=Field<CheckBox>(form,"inheritProfileBox");
    companies.SelectedItem=settings.Companies[0];Check(servers.Items.Count==1&&networks.Items.Count==1,"Cross-company choices leaked");servers.SelectedItem=settings.Servers[0];mode.SelectedIndex=1;networks.SelectedItem=settings.WifiNetworks[0];
    string json=(string)Call(form,"SelectedProfileJson");
+   string firstBuild=(string)Call(form,"ProfileForNewBuild",json),secondBuild=(string)Call(form,"ProfileForNewBuild",json);
+   Check(firstBuild.Contains("wifiApplyId")&&firstBuild!=secondBuild,"Rebuilding the same Wi-Fi does not create a fresh application ID");
+   Check(firstBuild.Contains(key)&&firstBuild.Contains(password),"Fresh build changed connection credentials");
    string script=(string)Call(form,"BuildProtectedProfileScript",json,".ps1");Check(!script.Contains(key)&&!script.Contains(password),"Exported script leaked credentials");File.WriteAllText(Path.Combine(folder,"generated.ps1"),script);Check(json.Contains("company-a")&&!json.Contains("company-b"),"Incorrect company profile");Check(json.Contains(password),"Password whitespace lost");
    companies.SelectedItem=settings.Companies[1];Check(servers.SelectedItem==null&&networks.SelectedItem==null,"Dependent selections not cleared");Check(servers.Items.Count==1&&((ServerProfile)servers.Items[0]).CompanyId=="company-b","Incorrect filtered server");
    companies.SelectedItem=settings.Companies[0];servers.SelectedItem=settings.Servers[0];networks.SelectedItem=settings.WifiNetworks[0];

@@ -58,7 +58,7 @@ Execute `./build.ps1` e `./tests/run-tests.ps1`. Os testes usam uma pasta tempor
 3. Clique em **Compilar e gravar USB** e confira a porta e o destino na confirmação.
 4. Aguarde a conclusão. O PlatformIO compila com o perfil selecionado e executa o alvo `upload` do ambiente, incluindo bootloader, partições e aplicação necessários à primeira instalação. Os três projetos ESP32 usam o protocolo serial padrão do PlatformIO.
 
-O perfil privado continua disponível durante a gravação e é removido ao finalizar. O Studio não adiciona `erase_flash` e desativa `FIRMWARE_FACTORY_RESET` nessa operação, preservando NVS e filas no bootstrap. O firmware continua validando mudanças de empresa/servidor; gravação USB não libera automaticamente uma instalação vinculada a outro destino. Para incorporar os dados selecionados, desmarque **Usar configuração já salva no ESP**.
+O perfil privado continua disponível durante a gravação e é removido ao finalizar. O Studio não adiciona `erase_flash` e desativa `FIRMWARE_FACTORY_RESET` nessa operação, preservando NVS e filas no bootstrap. O firmware continua validando mudanças de empresa/servidor; gravação USB não libera automaticamente uma instalação vinculada a outro destino. Para configurar empresa, servidor e rede inicial, use o projeto bootstrap. Os projetos de disponibilidade e refugo compilam como atualização global, preservando o perfil existente no ESP.
 
 Feche monitores seriais que estejam usando a porta. Se a conexão ficar em `Connecting`, mantenha **BOOT** pressionado até a gravação iniciar. Se nenhuma porta aparecer, confira o cabo de dados e o driver USB da placa. O sucesso só é mostrado quando o processo termina sem erro; a janela de progresso e o log acompanham a operação.
 
@@ -96,3 +96,11 @@ Cada compilação com **Rede inicial do Studio** recebe um identificador novo de
 Após conectar, o firmware continua aceitando o Wi-Fi recebido do sistema. Essa troca pode acontecer já na primeira sincronização. Reiniciar o ESP não reaplica o Wi-Fi inicial dessa mesma compilação. Regravar exatamente o mesmo arquivo `.bin` também não cria uma identificação nova: use **Compilar e gravar USB** para gerar a nova aplicação.
 
 O monitor mostra `[PERFIL] Rede inicial do Studio aplicada nesta compilacao: <SSID>` quando essa etapa ocorre. Os scripts protegidos BAT/PS1 também geram uma identificação nova a cada execução.
+
+## Biblioteca global de firmwares
+
+- Bootstrap: instalação inicial por empresa, com servidor e Wi-Fi de descoberta escolhidos no Studio.
+- Disponibilidade e Refugo: atualização global automática. Empresa, servidor, chave e Wi-Fi inicial não entram no .bin. O ESP herda seu perfil NVS e continua recebendo o Wi-Fi de uso do sistema.
+- Cada artefato novo possui um marcador de compatibilidade e o manifesto registra tipo, modo, placa e SHA-256 sem segredos.
+- No sistema, use a Biblioteca de firmwares do superadministrador para cadastrar, validar, testar e liberar as versões. As ações exigem a senha atual.
+- O SHA-256 confere os bytes; ele não é uma assinatura de autoria nem um antivírus. Compile código revisado de origem confiável.

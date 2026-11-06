@@ -24,7 +24,8 @@ class ProfilesTests {
    settings.Companies=new List<CompanyProfile>{new CompanyProfile{Id="company-a",Name="Company A"},new CompanyProfile{Id="company-b",Name="Company B"}};
    settings.Servers=new List<ServerProfile>{new ServerProfile{Id="server-a",CompanyId="company-a",Name="Server A",BaseUrl="https://a.invalid",ProtectedKey=ProfileSecurity.Protect(key)},new ServerProfile{Id="server-b",CompanyId="company-b",Name="Server B",BaseUrl="https://b.invalid",ProtectedKey=ProfileSecurity.Protect(key)}};
    settings.WifiNetworks=new List<WifiProfile>{new WifiProfile{Id="wifi-a",CompanyId="company-a",Name="Network A",Ssid="Test A",ProtectedPassword=ProfileSecurity.Protect(password)},new WifiProfile{Id="wifi-b",CompanyId="company-b",Name="Network B",Ssid="Test B",ProtectedPassword=ProfileSecurity.Protect(password)}};
-   var project=new FirmwareProject{Name="Test production",Folder=args[0],Environment="esp32dev"};settings.Projects.Add(project);
+   string initialFolder=Path.Combine(folder,"initial-project");Directory.CreateDirectory(initialFolder);File.WriteAllText(Path.Combine(initialFolder,"firmware-profile.json"),"{\"kind\":\"bootstrap\"}");
+   var project=new FirmwareProject{Name="Test initial installation",Folder=initialFolder,Environment="esp32dev"};settings.Projects.Add(project);
    var projects=Field<ListBox>(form,"projects");projects.DataSource=null;projects.Items.Clear();projects.Items.Add(project);projects.SelectedIndex=0;Call(form,"RefreshProfileData");
    var companies=Field<ComboBox>(form,"companyProfileBox");var servers=Field<ComboBox>(form,"serverProfileBox");var networks=Field<ComboBox>(form,"wifiProfileBox");var mode=Field<ComboBox>(form,"wifiModeBox");var inherit=Field<CheckBox>(form,"inheritProfileBox");
    companies.SelectedItem=settings.Companies[0];Check(servers.Items.Count==1&&networks.Items.Count==1,"Cross-company choices leaked");servers.SelectedItem=settings.Servers[0];mode.SelectedIndex=1;networks.SelectedItem=settings.WifiNetworks[0];
@@ -56,17 +57,17 @@ class ProfilesTests {
    string artifact=(string)Call(form,"GetMainFirmwarePath");Check(artifact!=null&&File.Exists(artifact),"Successful artifact not available");string manifest=File.ReadAllText(Path.Combine(Path.GetDirectoryName(artifact),"profile-manifest.json"));Check(!manifest.Contains(key)&&!manifest.Contains(password),"Manifest leaked credentials");Check(!File.Exists(Path.Combine(build,"profile.json")),"Private input left behind");
    companies.SelectedItem=settings.Companies[1];Check(Call(form,"GetMainFirmwarePath")==null,"Other company artifact exported");companies.SelectedItem=settings.Companies[0];servers.SelectedItem=settings.Servers[0];networks.SelectedItem=settings.WifiNetworks[0];Check(Call(form,"GetMainFirmwarePath")!=null,"Current artifact did not recover");
    File.AppendAllText(artifact,"corrupted");Check(Call(form,"GetMainFirmwarePath")==null,"Corrupted artifact allowed");
-   inherit.Checked=true;json=(string)Call(form,"SelectedProfileJson");Check(json.Contains("inherit")&&!json.Contains("apiKey")&&!json.Contains("company-a"),"Universal OTA embeds identity");
+   Field<TextBox>(form,"folderBox").Text=args[0];Call(form,"SetProfileEnabled");servers.SelectedItem=settings.Servers[0];json=(string)Call(form,"SelectedProfileJson");Check(json.Contains("inherit")&&!json.Contains("apiKey")&&!json.Contains("company-a"),"Universal OTA embeds identity");
    var adoption=Field<CheckBox>(form,"adoptProfileBox");
-   Check(!adoption.Enabled&&!servers.Enabled,"Saved configuration must disable manual destination and migration");
-   inherit.Checked=false;Check(adoption.Enabled&&servers.Enabled,"Manual destination controls did not recover");
+   Check(!adoption.Enabled&&servers.Enabled,"Global configuration must allow instance selection and disable migration");
+   Field<TextBox>(form,"folderBox").Text=initialFolder;Call(form,"SetProfileEnabled");Check(adoption.Enabled&&servers.Enabled,"Initial destination controls did not recover");
    Check(adoption.Parent is ProfileGroupBox&&adoption.Parent!=inherit.Parent,"Migration must be separate from regular update options");
    string bootstrap=Path.Combine(folder,"bootstrap");Directory.CreateDirectory(bootstrap);File.WriteAllText(Path.Combine(bootstrap,"firmware-profile.json"),"{\"kind\":\"bootstrap\"}");
    var folderInput=Field<TextBox>(form,"folderBox");folderInput.Text=bootstrap;inherit.Checked=true;Call(form,"SetProfileEnabled");
    Check(!inherit.Checked&&!project.InheritProfile,"Bootstrap retained hidden inherited configuration");
    Check(mode.SelectedIndex==1&&!mode.Enabled&&networks.Enabled,"Bootstrap must use a selectable initial network");
    form.Show();Application.DoEvents();Check(!inherit.Visible,"Bootstrap exposes saved configuration option");
-   folderInput.Text=args[0];Call(form,"SetProfileEnabled");Application.DoEvents();Check(inherit.Visible,"Operational firmware hides saved configuration option");
+   folderInput.Text=args[0];Call(form,"SetProfileEnabled");Application.DoEvents();Check(!inherit.Visible&&servers.Enabled,"Operational firmware must show only instance selection");
    inherit.Checked=true;Application.DoEvents();
    checks+=TerminalTests.Run(form,key,password,folder);
    if(args.Contains("--preview")){form.Text="Studio - revisão visual isolada";Application.Run(form);}

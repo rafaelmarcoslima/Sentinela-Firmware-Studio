@@ -1,4 +1,4 @@
-# Device Firmware Studio
+﻿# Device Firmware Studio
 
 Aplicativo Windows para cadastrar projetos PlatformIO, compilar firmware ESP32, localizar artefatos e calcular SHA-256.
 
@@ -112,3 +112,11 @@ O aplicativo é distribuído como **Device Firmware Studio**, no executável `di
 Os cadastros ficam em `%LOCALAPPDATA%/DeviceFirmwareStudio/projects.xml`. Na primeira abertura, quando ainda não há um cadastro no novo destino, os dados da instalação anterior são importados automaticamente, preservando projetos, histórico e credenciais criptografadas para o mesmo usuário do Windows. O arquivo anterior não é apagado nem substituído.
 
 O repositório GitHub de atualizações mantém seu endereço existente. Novas releases devem publicar o arquivo `DeviceFirmwareStudio.exe`. As instalações antigas que procuram o nome anterior precisam receber esta versão manualmente, ou a release pode também disponibilizar um arquivo com o nome exigido por elas durante a transição.
+
+## Instância de destino dos firmwares globais
+
+Disponibilidade e refugo exibem somente o seletor de instância de destino, com URLs equivalentes agrupadas, independentemente da empresa. A seleção identifica a confirmação, o histórico, o manifesto e os nomes dos arquivos exportados. Trocar a instância exige compilar novamente para exportar um pacote identificado com o novo destino.
+
+O perfil enviado à compilação continua global (`mode: inherit`): empresa, servidor, chave e Wi-Fi são preservados no ESP. A seleção no Studio não publica o arquivo nem restringe o binário a uma instância. O cadastro e a aprovação continuam sendo realizados manualmente na biblioteca de cada sistema.
+
+O firmware inicial mantém empresa, servidor e Wi-Fi inicial por empresa. Nenhuma API ou código dos três firmwares precisa ser alterado para este seletor.

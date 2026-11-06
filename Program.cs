@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -1942,7 +1942,7 @@ namespace DeviceFirmwareStudio
                 MessageBox.Show(I18n.T("firmware.bin não encontrado. Compile o projeto primeiro."), I18n.T("Firmware indisponível"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            using (var dialog = new SaveFileDialog { FileName = File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json")) ? "firmware-" + (inheritProfileBox.Checked ? "universal" : ((CompanyProfile)companyProfileBox.SelectedItem).Id) + "-" + CalculateSha256(firmware).Substring(0, 8) + ".bin" : "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
+            using (var dialog = new SaveFileDialog { FileName = File.Exists(Path.Combine(folderBox.Text, "firmware-profile.json")) ? "firmware-" + (inheritProfileBox.Checked ? "global-" + DestinationFileLabel() : ((CompanyProfile)companyProfileBox.SelectedItem).Id) + "-" + CalculateSha256(firmware).Substring(0, 8) + ".bin" : "firmware.bin", Filter = "Firmware ESP32 (*.bin)|*.bin" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 File.Copy(firmware, dialog.FileName, true);
@@ -1959,7 +1959,7 @@ namespace DeviceFirmwareStudio
                 return;
             }
             string projectName = string.IsNullOrWhiteSpace(nameBox.Text) ? "firmware" : Regex.Replace(nameBox.Text, @"[^A-Za-z0-9_-]", "-");
-            using (var dialog = new SaveFileDialog { FileName = projectName + "-firmware-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".zip", Filter = "Pacote ZIP (*.zip)|*.zip" })
+            using (var dialog = new SaveFileDialog { FileName = projectName + (IsGlobalProfile() ? "-" + DestinationFileLabel() : "") + "-firmware-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".zip", Filter = "Pacote ZIP (*.zip)|*.zip" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
                 using (var fileStream = new FileStream(dialog.FileName, FileMode.Create))
@@ -1983,6 +1983,7 @@ namespace DeviceFirmwareStudio
                         writer.WriteLine(I18n.T("Tamanho") + ": " + FormatFileSize(new FileInfo(firmware).Length));
                         writer.WriteLine("SHA-256: " + sha);
                         writer.WriteLine("Aplicativo: Device Firmware Studio v" + AppVersion);
+                        if(File.Exists(Path.Combine(folderBox.Text,"firmware-profile.json"))) writer.WriteLine(L("Instância de destino: ","Target instance: ","Instancia de destino: ")+SelectedDestinationUrl());
                     }
                 }
                 statusLabel.Text = L("Pacote ZIP criado em ", "ZIP package created at ", "Paquete ZIP creado en ") + dialog.FileName;

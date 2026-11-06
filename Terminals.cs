@@ -8,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace SentinelaFirmwareStudio
+namespace DeviceFirmwareStudio
 {
     public class ReadableSerialCombo : ComboBox
     {

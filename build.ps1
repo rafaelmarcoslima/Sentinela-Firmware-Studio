@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sourceFile = Join-Path $projectRoot 'Program.cs'
 $outputFolder = Join-Path $projectRoot 'dist'
-$outputFile = Join-Path $outputFolder 'SentinelaFirmwareStudio.exe'
+$outputFile = Join-Path $outputFolder 'DeviceFirmwareStudio.exe'
 $iconFile = Join-Path $projectRoot 'assets\app.ico'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
@@ -48,7 +48,7 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
 }
 
 & $compiler /nologo /target:winexe /optimize+ "/out:$outputFile" "/win32icon:$iconFile" `
-    "/resource:$(Join-Path $projectRoot 'assets\app.png'),SentinelaFirmwareStudio.AppIconPng" `
+    "/resource:$(Join-Path $projectRoot 'assets\app.png'),DeviceFirmwareStudio.AppIconPng" `
     /reference:System.dll `
     /reference:System.Core.dll `
     /reference:System.Drawing.dll `
@@ -61,7 +61,7 @@ if (-not (Test-Path -LiteralPath $iconFile)) {
     $sourceFile (Join-Path $projectRoot 'Profiles.cs') (Join-Path $projectRoot 'UsbUpload.cs') (Join-Path $projectRoot 'Terminals.cs') (Join-Path $projectRoot 'CompilationWorkspace.cs')
 
 if ($LASTEXITCODE -ne 0) {
-    throw "Falha ao compilar o Sentinela Firmware Studio."
+    throw "Falha ao compilar o Device Firmware Studio."
 }
 
 Write-Host "Aplicativo criado em: $outputFile"
@@ -69,6 +69,6 @@ $sha256 = (Get-FileHash -LiteralPath $outputFile -Algorithm SHA256).Hash
 Write-Host ''
 Write-Host 'Dados para publicar no GitHub:'
 Write-Host "  Tag da Release: v$currentVersion"
-Write-Host "  Título: Sentinela Firmware Studio v$currentVersion"
+Write-Host "  Título: Device Firmware Studio v$currentVersion"
 Write-Host "  Arquivo: $outputFile"
 Write-Host "  SHA-256: $sha256"

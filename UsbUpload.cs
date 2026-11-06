@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
-namespace SentinelaFirmwareStudio
+namespace DeviceFirmwareStudio
 {
     public static class UsbUpload
     {

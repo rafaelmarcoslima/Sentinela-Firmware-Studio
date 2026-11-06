@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
-namespace SentinelaFirmwareStudio {
+namespace DeviceFirmwareStudio {
  public class CompanyProfile {
   public string Id {get;set;} public string Name {get;set;} public string Address {get;set;} public string City {get;set;} public string State {get;set;} public string Country {get;set;} public bool Active {get;set;} public CompanyProfile(){Active=true;}
   public override string ToString(){return Name+" — "+Id;}

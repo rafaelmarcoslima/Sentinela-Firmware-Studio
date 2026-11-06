@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using SentinelaFirmwareStudio;
+using DeviceFirmwareStudio;
 class ProfilesTests {
  static int checks;
  static void Check(bool value,string message){if(!value)throw new Exception(message);checks++;}

@@ -16,7 +16,7 @@ using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 
-namespace SentinelaFirmwareStudio
+namespace DeviceFirmwareStudio
 {
     public static class I18n
     {
@@ -30,7 +30,7 @@ namespace SentinelaFirmwareStudio
         }
         static readonly Dictionary<string, string> English = new Dictionary<string, string>
         {
-            { "Sentinela Firmware Studio", "Sentinela Firmware Studio" }, { "PROJETOS SALVOS", "SAVED PROJECTS" },
+            { "Device Firmware Studio", "Device Firmware Studio" }, { "PROJETOS SALVOS", "SAVED PROJECTS" },
             { "Configuração do projeto", "Project settings" }, { "Compilação e arquivos", "Build and files" },
             { "CONFIGURAÇÃO DO PROJETO", "PROJECT SETTINGS" }, { "Novo manual", "New manual" }, { "Editar configuração", "Edit settings" },
             { "Salvar configuração", "Save settings" }, { "Cancelar edição", "Cancel editing" }, { "Nome", "Name" },
@@ -93,7 +93,7 @@ namespace SentinelaFirmwareStudio
         };
         static readonly Dictionary<string, string> Spanish = new Dictionary<string, string>
         {
-            { "Sentinela Firmware Studio", "Sentinela Firmware Studio" }, { "PROJETOS SALVOS", "PROYECTOS GUARDADOS" },
+            { "Device Firmware Studio", "Device Firmware Studio" }, { "PROJETOS SALVOS", "PROYECTOS GUARDADOS" },
             { "Configuração do projeto", "Configuración del proyecto" }, { "Compilação e arquivos", "Compilación y archivos" },
             { "CONFIGURAÇÃO DO PROJETO", "CONFIGURACIÓN DEL PROYECTO" }, { "Novo manual", "Nuevo manual" }, { "Editar configuração", "Editar configuración" },
             { "Salvar configuração", "Guardar configuración" }, { "Cancelar edição", "Cancelar edición" }, { "Nome", "Nombre" },
@@ -426,12 +426,12 @@ namespace SentinelaFirmwareStudio
     public partial class MainForm : Form
     {
         const string AppVersion = "1.2.0";
-        const string UpdateAssetName = "SentinelaFirmwareStudio.exe";
+        const string UpdateAssetName = "DeviceFirmwareStudio.exe";
         const string GitHubLatestReleaseApi = "https://api.github.com/repos/rafaelmarcoslima/Sentinela-Firmware-Studio/releases/latest";
         const string GitHubReleasesPage = "https://github.com/rafaelmarcoslima/Sentinela-Firmware-Studio/releases";
         readonly string settingsFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "SentinelaFirmwareStudio");
+            "DeviceFirmwareStudio");
         string SettingsFile { get { return Path.Combine(settingsFolder, "projects.xml"); } }
 
         AppSettings settings = new AppSettings();
@@ -495,7 +495,7 @@ namespace SentinelaFirmwareStudio
 
         public MainForm(string profileStore = null)
         {
-            Text = "Sentinela Firmware Studio";
+            Text = "Device Firmware Studio";
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             Width = 1050;
             if (profileStore != null) settingsFolder = Path.GetFullPath(profileStore);
@@ -504,6 +504,11 @@ namespace SentinelaFirmwareStudio
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 9F);
             BuildUi();
+            if (profileStore == null)
+            {
+                try { MigrateLegacySettings(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)); }
+                catch (Exception ex) { MessageBox.Show("Não foi possível importar os cadastros da instalação anterior: " + ex.Message, "Device Firmware Studio", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            }
             LoadSettings();
             I18n.Language = string.IsNullOrWhiteSpace(settings.Language) ? "pt" : settings.Language;
             CaptureLocalizableControls(this);
@@ -532,7 +537,7 @@ namespace SentinelaFirmwareStudio
             sidebarToggleButton.ImageAlign = ContentAlignment.MiddleCenter;
             sidebarToggleButton.Tag = "sidebar-toggle";
             sidebarToggleButton.Click += delegate { ToggleSidebar(); };
-            sidebarTitle = new Label { Text = "Sentinela Firmware", AutoSize = true, Left = 68, Top = 8, Font = new Font("Segoe UI", 12F, FontStyle.Bold) };
+            sidebarTitle = new Label { Text = "Device Firmware", AutoSize = true, Left = 68, Top = 8, Font = new Font("Segoe UI", 12F, FontStyle.Bold) };
             sidebarSubtitle = new Label { Text = "PROJETOS SALVOS", AutoSize = true, Left = 68, Top = 35, Font = new Font("Segoe UI", 7.5F) };
             brand.Controls.Add(sidebarToggleButton);
             brand.Controls.Add(sidebarTitle);
@@ -570,7 +575,7 @@ namespace SentinelaFirmwareStudio
             headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 350));
             headerLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             var titlePanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
-            headerProjectTitle = new Label { Text = "SENTINELA FIRMWARE STUDIO", AutoSize = true, Left = 0, Top = 2, Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = Color.White, BackColor = Color.Transparent };
+            headerProjectTitle = new Label { Text = "DEVICE FIRMWARE STUDIO", AutoSize = true, Left = 0, Top = 2, Font = new Font("Segoe UI", 13F, FontStyle.Bold), ForeColor = Color.White, BackColor = Color.Transparent };
             headerProjectSubtitle = new Label { Text = "Selecione um projeto para começar", AutoSize = false, Dock = DockStyle.Bottom, Height = 23, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.WhiteSmoke, BackColor = Color.Transparent };
             titlePanel.Controls.Add(headerProjectTitle);
             titlePanel.Controls.Add(headerProjectSubtitle);
@@ -873,7 +878,7 @@ namespace SentinelaFirmwareStudio
 
         void ApplyLanguage()
         {
-            Text = I18n.T("Sentinela Firmware Studio");
+            Text = I18n.T("Device Firmware Studio");
             foreach (var pair in localizationKeys) pair.Key.Text = I18n.T(pair.Value);
             foreach (var pair in buttonKeys)
             {
@@ -1052,7 +1057,7 @@ namespace SentinelaFirmwareStudio
         {
             try
             {
-                using (Stream embedded = typeof(MainForm).Assembly.GetManifestResourceStream("SentinelaFirmwareStudio.AppIconPng"))
+                using (Stream embedded = typeof(MainForm).Assembly.GetManifestResourceStream("DeviceFirmwareStudio.AppIconPng"))
                 {
                     if (embedded != null)
                     {
@@ -1321,6 +1326,18 @@ namespace SentinelaFirmwareStudio
             return candidates.FirstOrDefault(File.Exists);
         }
 
+        public static void MigrateLegacySettings(string localRoot)
+        {
+            string destination = Path.Combine(localRoot, "DeviceFirmwareStudio", "projects.xml");
+            string previous = Path.Combine(localRoot, "SentinelaFirmwareStudio", "projects.xml");
+            if (File.Exists(destination) || !File.Exists(previous)) return;
+            // Validate before copying. Keep the previous store and encrypted credentials intact.
+            using (var stream = File.OpenRead(previous))
+                new XmlSerializer(typeof(AppSettings)).Deserialize(stream);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            File.Copy(previous, destination, false);
+        }
+
         void LoadSettings()
         {
             try
@@ -1374,7 +1391,7 @@ namespace SentinelaFirmwareStudio
                 folderBox.Clear();
                 platformIoBox.Clear();
                 environmentBox.Text = "";
-                if (headerProjectTitle != null) headerProjectTitle.Text = "SENTINELA FIRMWARE STUDIO";
+                if (headerProjectTitle != null) headerProjectTitle.Text = "DEVICE FIRMWARE STUDIO";
                 if (headerProjectSubtitle != null) headerProjectSubtitle.Text = L("Selecione um projeto para começar", "Select a project to begin", "Seleccione un proyecto para comenzar");
                 RebuildProjectCards();
                 return;
@@ -1941,7 +1958,7 @@ namespace SentinelaFirmwareStudio
                 MessageBox.Show(I18n.T("firmware.bin não encontrado. Compile o projeto primeiro."), I18n.T("Firmware indisponível"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            string projectName = string.IsNullOrWhiteSpace(nameBox.Text) ? "sentinela" : Regex.Replace(nameBox.Text, @"[^A-Za-z0-9_-]", "-");
+            string projectName = string.IsNullOrWhiteSpace(nameBox.Text) ? "firmware" : Regex.Replace(nameBox.Text, @"[^A-Za-z0-9_-]", "-");
             using (var dialog = new SaveFileDialog { FileName = projectName + "-firmware-" + DateTime.Now.ToString("yyyyMMdd-HHmm") + ".zip", Filter = "Pacote ZIP (*.zip)|*.zip" })
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK) return;
@@ -1965,7 +1982,7 @@ namespace SentinelaFirmwareStudio
                         writer.WriteLine(I18n.T("Data e hora") + ": " + DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"));
                         writer.WriteLine(I18n.T("Tamanho") + ": " + FormatFileSize(new FileInfo(firmware).Length));
                         writer.WriteLine("SHA-256: " + sha);
-                        writer.WriteLine("Aplicativo: Sentinela Firmware Studio v" + AppVersion);
+                        writer.WriteLine("Aplicativo: Device Firmware Studio v" + AppVersion);
                     }
                 }
                 statusLabel.Text = L("Pacote ZIP criado em ", "ZIP package created at ", "Paquete ZIP creado en ") + dialog.FileName;
@@ -2016,7 +2033,7 @@ namespace SentinelaFirmwareStudio
                     string json;
                     using (var client = new WebClient())
                     {
-                        client.Headers[HttpRequestHeader.UserAgent] = "SentinelaFirmwareStudio/" + AppVersion;
+                        client.Headers[HttpRequestHeader.UserAgent] = "DeviceFirmwareStudio/" + AppVersion;
                         client.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
                         json = client.DownloadString(GitHubLatestReleaseApi);
                     }
@@ -2064,7 +2081,7 @@ namespace SentinelaFirmwareStudio
         {
             string updateFolder = Path.Combine(settingsFolder, "Updates");
             Directory.CreateDirectory(updateFolder);
-            string downloadedFile = Path.Combine(updateFolder, "SentinelaFirmwareStudio-v" + latest + ".exe");
+            string downloadedFile = Path.Combine(updateFolder, "DeviceFirmwareStudio-v" + latest + ".exe");
             if (File.Exists(downloadedFile)) File.Delete(downloadedFile);
 
             var progressForm = new Form
@@ -2086,7 +2103,7 @@ namespace SentinelaFirmwareStudio
             progressForm.Controls.Add(message);
 
             var client = new WebClient();
-            client.Headers[HttpRequestHeader.UserAgent] = "SentinelaFirmwareStudio/" + AppVersion;
+            client.Headers[HttpRequestHeader.UserAgent] = "DeviceFirmwareStudio/" + AppVersion;
             client.DownloadProgressChanged += delegate(object sender, DownloadProgressChangedEventArgs e)
             {
                 progress.Value = Math.Max(0, Math.Min(100, e.ProgressPercentage));

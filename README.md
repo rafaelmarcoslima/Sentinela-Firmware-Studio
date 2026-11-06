@@ -1,10 +1,10 @@
-# Sentinela Firmware Studio
+# Device Firmware Studio
 
 Aplicativo Windows para cadastrar projetos PlatformIO, compilar firmware ESP32, localizar artefatos e calcular SHA-256.
 
 ## Recursos
 
-- Salva vários projetos em `%LOCALAPPDATA%\SentinelaFirmwareStudio\projects.xml`.
+- Salva vários projetos em `%LOCALAPPDATA%\DeviceFirmwareStudio\projects.xml`.
 - Remove apenas o caminho salvo, sem apagar a pasta do projeto.
 - Detecta ambientes declarados no `platformio.ini`.
 - Executa compilação normal ou `clean` seguido de compilação.
@@ -26,7 +26,7 @@ No PowerShell, execute:
 .\build.ps1
 ```
 
-O executável será criado em `dist\SentinelaFirmwareStudio.exe`.
+O executável será criado em `dist\DeviceFirmwareStudio.exe`.
 
 O aplicativo utiliza o compilador C# do próprio Windows e não requer o SDK do .NET instalado.
 
@@ -104,3 +104,11 @@ O monitor mostra `[PERFIL] Rede inicial do Studio aplicada nesta compilacao: <SS
 - Cada artefato novo possui um marcador de compatibilidade e o manifesto registra tipo, modo, placa e SHA-256 sem segredos.
 - No sistema, use a Biblioteca de firmwares do superadministrador para cadastrar, validar, testar e liberar as versões. As ações exigem a senha atual.
 - O SHA-256 confere os bytes; ele não é uma assinatura de autoria nem um antivírus. Compile código revisado de origem confiável.
+
+
+## Nome do aplicativo
+
+O aplicativo é distribuído como **Device Firmware Studio**, no executável `dist/DeviceFirmwareStudio.exe`.
+Os cadastros ficam em `%LOCALAPPDATA%/DeviceFirmwareStudio/projects.xml`. Na primeira abertura, quando ainda não há um cadastro no novo destino, os dados da instalação anterior são importados automaticamente, preservando projetos, histórico e credenciais criptografadas para o mesmo usuário do Windows. O arquivo anterior não é apagado nem substituído.
+
+O repositório GitHub de atualizações mantém seu endereço existente. Novas releases devem publicar o arquivo `DeviceFirmwareStudio.exe`. As instalações antigas que procuram o nome anterior precisam receber esta versão manualmente, ou a release pode também disponibilizar um arquivo com o nome exigido por elas durante a transição.
